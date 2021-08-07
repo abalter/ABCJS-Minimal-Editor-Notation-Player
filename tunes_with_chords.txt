@@ -1,0 +1,232 @@
+%%%
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 1
+T: The Red-Haired Lass
+R: reel
+M: 4/4
+L: 1/8
+K: Gmaj
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: G: 5x0033
+R: D: 0x023x
+R: C: x32010
+   "G""^5x0033"DGGF G2 BG|G2 BG "D""^0x023x"AGEG|"G""^5x0033"DGGF GABd|egdB "C""^x32010"c2 BA|
+   "G""^5x0033"DGGF G2 BG|G2 BG "D""^0x023x"AGEG|"G""^5x0033"DGGF GABd|gedB "C""^x32010"c2 Bc||
+   "G""^5x0033"d2 gd edgd|d2 gd "C""^x32010"BABc|"G""^5x0033"d2 gd edef|gedB "C""^x32010"c2 Bc|
+   "G""^5x0033"d2 gd edgd|d2 gd BABd|"C""^x32010"c3A "G""^5x0033"B3A|GABd "D""^0x032x"egdB|| 
+
+
+
+%%%
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 2
+T: Out On The Ocean
+R: jig
+M: 6/8
+L: 1/8
+K: Gmaj
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: G: 5x0033
+R: D: 0x023x
+R: C: x32010
+    |:GE|"G""^5x0033"D2B BAG|BdB "D""^0x023x"A2B|"G""^5x0033"GED G2A|B2B "D""^0x023x"AGE|
+    "G""^5x0033"D2B BAG|BdB "D""^0x023x"A2B|"G""^5x0033"GED G2A|"D""^0x023x"BGE "G""^5x0033"G:|
+    Bd|"C""^x32010"e2e edB|ege edB|"D""^0x023x"d2B def|gfe dBA|
+    "G""^5x0033"G2A B2d|ege d2B|"C""^x32010"AGE G2A|"D""^0x023x"BGE "G""^5x0033"G:| 
+
+
+%%%
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 3
+T: The High
+R: reel
+M: 4/4
+L: 1/8
+K: Amix
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: A: x02220
+R: G: 5x0033
+R: D: 0x023x
+|:"A""^x02220"a2 fa ec A2|cAeA fAeA|a2 fa ec A2|Bcdc "G""^5x0033"BG G2|
+"A""^x02220"a2 fa ec A2|cdef "G""^5x0033"g2 fg|"D""^0x023x"afge fdec|Bcdc "G""^5x0033"BG G2:|
+|:"A""^x02220"cAeA fAeA|cAaf ec A2|cAeA fAeA|Bcdc "G""^5x0033"BG G2|
+"A""^x02220"cAeA fAeA|cdef "G""^5x0033"g2 fg|"D""^0x023x"afge fdec|Bcdc "G""^5x0033"BG G2:| 
+
+
+%%%
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 1
+T: Garrett Barry's
+R: jig
+M: 6/8
+L: 1/8
+K: Gmaj
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: G: 5x0033
+R: D: 0x023x
+R: C: x32010
+A|: "D""^0x023x"DEF "G""^5x0033"~G3|"D""^0x023x"AGE "C""^x32010"c2A|"D""^0x023x"dcA d2e|fed "C""^x32010"cAG|
+"D""^0x023x"~F3 GFG|AGE "C""^x32010"(3Bcd e|"D""^0x023x"dcA "C""^x32010"GEA|"D""^0x023x"DED D2 A:|
+|:"D""^0x023x"dcA d2e|fed (3efg e|"C""^x32010"dcA c2d|efd ecA|
+"D""^0x023x"dAA d2e|fed "C""^x32010"(3efg e|"D""^0x023x"dcA "G""^5x0033"GEA|"D""^0x023x"DED D2 A:| 
+
+
+%%%
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 2
+T: The Famous Ballymote
+R: reel
+M: 4/4
+L: 1/8
+K: Dmix
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: G: 5x0033
+R: D: 0x023x
+R: C: x32010
+||"D""^0x023x"FDAD FAAB|"C""^x32010"cABG EFGE|"D""^0x023x"FDAD FAAB|"C""^x32010"cAGE "D""^0x023x"ED D2:|
+|"D""^0x023x"FDFA d2 ed|"C""^x32010"cABG EFGE|"D""^0x023x"FDFA "G""^5x0033"d2 ed|"C""^x32010"cAGE "D""^0x023x"ED D2:|2 "D""^0x023x"FDFA "G""^5x0033"df ed|"C""^x32010"cAGE "D""^0x023x"ED D2|| 
+
+
+%%%
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 9
+T: Dan Breen's
+R: reel
+M: 4/4
+L: 1/8
+K: Edor
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: Am: x02210
+R: D/F#: 400320
+R: G: 5x0033
+|:"Am""^x02210"e2dB ABAG|EAAG A2Bd|e2dB "D/F#""^400320"ABAG|"G""^5x0033"EGGF G2Bd:|
+|:"Am""^x02210"e3g edBd|eA (3AAA edBd|e2eg "D/F#""^400320"edBc|"G""^5x0033"d2ef g2fg:| 
+
+
+%%%
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 3
+T: Scatter The Mud
+R: jig
+M: 6/8
+L: 1/8
+K: Ador
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: Am: x03320
+R: G: 5x0033
+R: D/F#: 400320
+"Am""^x02210"eAA B2A|eAA ABd|eAA "D/F#""^400320"BAB|"G""^5x0033"dBG GBd|
+"Am""^x02210"eAA B2A|eAA AGE|"G""^5x0033"GAB dge|"Am""^x02210"dBA A3:|
+"Am""^x02210"eaa egg|dBA ABd|eaa "D/F#""^400320"egg|"G""^5x0033"dBG GBd|
+"Am""^x02210"eaf g2e|dBA AGE|"G""^5x0033"GAB dge|"Am""^x02210"dBA ABd:| 
+
+
+%%%
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 1
+T: The Drunken Landlady
+R: reel
+M: 4/4
+L: 1/8
+K: Edor
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: Em: 2x2000
+R: D: 0x023x
+R: A: x02220
+"Em""^2x2000"BE~E2 BAFA|BE~E2 BAFA|"A""^x02220"ABAF "D""^0x023x"D2FD|FA~A2 BAFA|
+"Em""^2x2000"BE~E2 BAFA|BE~E2 BAFA|"D""^0x023x"A2Bc dfec|dBAF "Em""^2x2000"E4:|
+|:"Em""^2x2000"Beed e2de|f2df efdB|"A""^x02220"ABAF "D""^0x023x"D2FD|FA~A2 BAFA|
+"Em""^2x2000"Beed e2de|f2df efdB|"D""^0x023x"A2Bc dfec|dBAF "Em""^2x2000"E4:| 
+
+
+%%%
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 6
+T: Morrison's
+R: jig
+M: 6/8
+L: 1/8
+K: Edor
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: Em: 2x2000
+R: D: 0x023x
+R: G: 5x0033
+|:"Em""^2x2000"E3 B3|EBE "D""^0x023x"AFD|"Em""^2x2000"EDE B3|"G""^5x0033"dcB "D""^0x023x"AFD|
+"Em""^2x2000"E3 B3|EBE "D""^0x023x"AFD|"C""^x32010"G3 FGA|"D""^0x023x"dAG FED:|
+"Em""^2x2000"Bee fee|aee fee|Bee fee|"D""^0x023x"a2g fed|
+"Em""^2x2000"Bee fee|aee fee|"C""^x32010"gfe d2A|"D""^0x023x"BAG FGA|
+"Em""^2x2000"Bee fee|aee fee|Bee fee|"D""^0x023x"faf def|
+"C""^x32010"g3 gfe|"G""^5x0033"def g2d|"D""^0x023x"edc d2A|"C""^x32010"BAG "D""^0x023x"FED|| 
+
+
+%%%
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 6
+T: Morrison's
+R: jig
+M: 6/8
+L: 1/8
+K: Edor
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: Em: 2x2000
+R: D: 0x032x or 05032x
+R: D/F#: 400320
+R: G: 5x0033 or 5x5033
+R: A: x02210
+|:"Em""^2x2000"E3 B3|EBE "D""^0x023x"AFD|"Em""^2x2000"EDE "A""^x02220"B3|"D""^0x023x"dcB AFD|
+"Em""^2x2000"E3 B3|EBE "D""^0x023x"AFD|"Em""^2x2000"G3 "A""^x02220"FGA|"D""^0x023x"dAG FED:|
+"Em""^2x2000"Bee fee|aee fee|Bee fee|"D""^0x023x"a2g fed|
+"Em""^2x2000"Bee fee|aee "A""^x02220"fee|"D""^0x023x"gfe d2A|BAG FGA|
+"Em""^2x2000"Bee fee|aee fee|Bee fee|"D""^0x023x"faf def|
+"G""^5x0033"g3 gfe|"D/F#""^400320"def "G""^5x0033"g2d|"A""^x02220"edc "D""^0x023x"d2A|BAG FED||
+

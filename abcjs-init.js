@@ -12,14 +12,70 @@ window.onload = function () {
         displayPlay: true,
         displayProgress: true,
         displayWarp: true,
+        chordsOff: true,
+        program: 21,
+        defaultQpm: 1,
+        qpm: 1
       },
     },
     abcjsParams: {
       add_classes: true,
       clickListener: clickListener,
+      format: {
+        // gchordfont: "Georgia",
+        // wordsfont: "Courier",
+        // vocalfont: "Courier"
+    }
     },
     selectionChangeCallback: selectionChangeCallback,
   });
+
+  abcjs.startAnimation("paper", 'abc', {
+    showCursor: true,
+});
+
+abcjs.stopAnimation();
+
+abcjs.pauseAnimation(true || false);
+
+  // var annotations = document.getElementsByClassName("abcjs-annotation");
+  // console.log(annotations);
+  // console.log(typeof(annotations));
+  // for (key in annotations)
+  // {
+  //   el = annotations[key];
+  //   console.log(el);
+  //   console.log(typeof(el));
+  //   if (typeof(el) == "object")
+  //   {
+  //     console.log("el", el);
+  //     console.log(typeof(el));
+  //     var y = parseInt(el.getAttribute("y"));
+  //     console.log("old y", y);
+  //     el.setAttribute("y", y + 170);
+  //     console.log("new y", el.getAttribute("y"));
+  //   }
+  // }
+
+  // var chords = document.getElementsByClassName("abcjs-chord")
+  // console.log(chords);
+  // console.log(typeof(chords));
+  // for (key in chords)
+  // {
+  //   el = chords[key];
+  //   console.log("key", key, "chord", el);
+  //   console.log(typeof(el));
+
+  //   if (typeof(el) == "object")
+  //   {
+  //     console.log("el", el);
+  //     console.log(typeof(el));
+  //     var y = parseInt(el.getAttribute("y"));
+  //     console.log("old y", y);
+  //     el.setAttribute("y", y + 170);
+  //     console.log("new y", el.getAttribute("y"));
+  //   }
+  // }
 };
 
 function clickListener(

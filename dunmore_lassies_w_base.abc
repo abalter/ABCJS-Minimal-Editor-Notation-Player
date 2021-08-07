@@ -1,0 +1,14 @@
+X: 7
+T: The Dunmore Lasses
+R: reel
+M: 4/4
+L: 1/8
+K: Emin
+V:1 gchord=down
+EDEF GFGA |Be {ed}e2 Be {ed}e2 |EDEF GFGB|AGBG AGED|
+EDEF GFGA |Beed e2 ef |gefd edBG |AcBA GEDG :|
+|:gfeg fede |e ~e2 Be ~e2 |gfeg fedB |AcBA GE E2 |
+gfeg fede |Beed e2 ef |gefd edBG |AcBA GE E2 :|
+V:2 cleff=bass
+B,4 A,4 | E,4 E,4 | E,4  G,4 | F,4 B,,4 | 
+E,4 F,4 | G,4 A,4| B,4 A,4 | G,4 F,4 :|

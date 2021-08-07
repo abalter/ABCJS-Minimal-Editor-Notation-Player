@@ -1,0 +1,20 @@
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 1
+T: The Lilting Banshee
+R: jig
+M: 6/8
+L: 1/8
+K: Ador
+R: Chord Shapes:
+R: Am1: x02210
+R: G1(i): 550000
+R: Em2: 5x5000
+R: C1: x32010
+|:"Am1"EAA EAA|BAB "G1(i)"G2A|"Em2"Bee edB|def "G1(i)"gfg|
+eAA eAA|BAB G2A|Bee edB|dBA A3:|
+eaa age|dBA G2A|Bee edB|def gfg|
+eaa age|dBA G2A|Bee edB|dBA A3:| 

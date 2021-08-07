@@ -1,0 +1,20 @@
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 1
+T: Garrett Barry's
+R: jig
+M: 6/8
+L: 1/8
+K: Gmaj
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: G: 5x0033
+R: D: 0x023x
+R: C: x32010
+A|: "D""^0x023x"DEF "G""^5x0033"~G3|"D""^0x023x"AGE "C""^x32010"c2A|"D""^0x023x"dcA d2e|fed "C""^x32010"cAG|
+"D""^0x023x"~F3 GFG|AGE "C""^x32010"(3Bcd e|"D""^0x023x"dcA "C""^x32010"GEA|"D""^0x023x"DED D2 A:|
+|:"D""^0x023x"dcA d2e|fed (3efg e|"C""^x32010"dcA c2d|efd ecA|
+"D""^0x023x"dAA d2e|fed "C""^x32010"(3efg e|"D""^0x023x"dcA "G""^5x0033"GEA|"D""^0x023x"DED D2 A:| 

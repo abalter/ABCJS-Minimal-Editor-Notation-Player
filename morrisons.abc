@@ -1,0 +1,47 @@
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 6
+T: Morrison's
+R: jig
+M: 6/8
+L: 1/8
+K: Edor
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: Em: 2x2000
+R: D: 0x023x
+R: G: 5x0033
+|:"Em""^2x2000"E3 B3|EBE "D""^0x023x"AFD|"Em""^2x2000"EDE B3|"G""^5x0033"dcB "D""^0x023x"AFD|
+"Em""^2x2000"E3 B3|EBE "D""^0x023x"AFD|"C""^x32010"G3 FGA|"D""^0x023x"dAG FED:|
+"Em""^2x2000"Bee fee|aee fee|Bee fee|"D""^0x023x"a2g fed|
+"Em""^2x2000"Bee fee|aee fee|"C""^x32010"gfe d2A|"D""^0x023x"BAG FGA|
+"Em""^2x2000"Bee fee|aee fee|Bee fee|"D""^0x023x"faf def|
+"C""^x32010"g3 gfe|"G""^5x0033"def g2d|"D""^0x023x"edc d2A|"C""^x32010"BAG "D""^0x023x"FED|| 
+
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 6
+T: Morrison's
+R: jig
+M: 6/8
+L: 1/8
+K: Edor
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: Em: 2x2000
+R: D: 0x032x or 05032x
+R: D/F#: 400320
+R: G: 5x0033 or 5x5033
+R: A: x02210
+|:"Em""^2x2000"E3 B3|EBE "D""^0x023x"AFD|"Em""^2x2000"EDE "A""^x02220"B3|"D""^0x023x"dcB AFD|
+"Em""^2x2000"E3 B3|EBE "D""^0x023x"AFD|"Em""^2x2000"G3 "A""^x02220"FGA|"D""^0x023x"dAG FED:|
+"Em""^2x2000"Bee fee|aee fee|Bee fee|"D""^0x023x"a2g fed|
+"Em""^2x2000"Bee fee|aee "A""^x02220"fee|"D""^0x023x"gfe d2A|BAG FGA|
+"Em""^2x2000"Bee fee|aee fee|Bee fee|"D""^0x023x"faf def|
+"G""^5x0033"g3 gfe|"D/F#""^400320"def "G""^5x0033"g2d|"A""^x02220"edc "D""^0x023x"d2A|BAG FED||

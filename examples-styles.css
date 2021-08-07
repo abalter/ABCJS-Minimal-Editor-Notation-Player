@@ -172,3 +172,17 @@ tr:nth-child(even) {
     background: #404040;
   }
 }
+
+
+/* .abcjs-annotation {
+  unicode-bidi:bidi-override;
+  writing-mode: vertical-lr;
+  text-orientation: upright;
+  direction:rtl;
+  /* transform: rotate(90deg); */
+}
+
+.abcjs-chord {
+  writing-mode: vertical-lr;
+  text-orientation: upright;;
+} */
