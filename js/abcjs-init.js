@@ -1,42 +1,42 @@
 var abcjsEditor;
 
-window.onload = function () {
-  abcjsEditor = new ABCJS.Editor('abc', {
-    canvas_id: 'paper',
-    warnings_id: 'warnings',
-    synth: {
-      el: '#audio',
-      options: {
-        displayLoop: true,
-        displayRestart: true,
-        displayPlay: true,
-        displayProgress: true,
-        displayWarp: true,
-        chordsOff: true,
-        program: 21,
-        defaultQpm: 1,
-        qpm: 1
+window.onload = updateTune();
+
+function updateTune()
+{
+  let abcjsEditor = new ABCJS.Editor(
+    'abc-display', 
+    {
+      canvas_id: 'paper',
+      warnings_id: 'warnings',
+      synth: {
+        el: '#audio',
+        options: {
+          displayLoop: true,
+          displayRestart: true,
+          displayPlay: true,
+          displayProgress: true,
+          displayWarp: true,
+          chordsOff: true,
+          program: 21,
+          defaultQpm: 1,
+          qpm: 1
+        },
       },
-    },
-    abcjsParams: {
-      add_classes: true,
-      clickListener: clickListener,
-      format: {
-        // gchordfont: "Georgia",
-        // wordsfont: "Courier",
-        // vocalfont: "Courier"
+      abcjsParams: {
+        add_classes: true,
+        clickListener: clickListener,
+        format: {
+          // gchordfont: "Georgia",
+          // wordsfont: "Courier",
+          // vocalfont: "Courier"
+        }
+      },
+      selectionChangeCallback: selectionChangeCallback,
     }
-    },
-    selectionChangeCallback: selectionChangeCallback,
-  });
+  );
+}
 
-  abcjs.startAnimation("paper", 'abc', {
-    showCursor: true,
-});
-
-abcjs.stopAnimation();
-
-abcjs.pauseAnimation(true || false);
 
   // var annotations = document.getElementsByClassName("abcjs-annotation");
   // console.log(annotations);
@@ -76,7 +76,7 @@ abcjs.pauseAnimation(true || false);
   //     console.log("new y", el.getAttribute("y"));
   //   }
   // }
-};
+// };
 
 function clickListener(
   abcElem,
@@ -85,15 +85,16 @@ function clickListener(
   analysis,
   drag,
   mouseEvent
-) {
+) 
+{
   var lastClicked = abcElem.midiPitches;
   if (!lastClicked) return;
 
   ABCJS.synth
     .playEvent(
       lastClicked,
-      abcElem.midiGraceNotePitches,
-      abcjsEditor.millisecondsPerMeasure()
+      abcElem.midiGraceNotePitches
+      // abcjsEditor.millisecondsPerMeasure()
     )
     .then(function (response) {
       console.log('note played');
@@ -103,9 +104,12 @@ function clickListener(
     });
 }
 
-function selectionChangeCallback(start, end) {
+function selectionChangeCallback(start, end) 
+{
+  console.log("selectionChangeCallback");
+
   if (abcjsEditor) {
     var el = abcjsEditor.tunes[0].getElementFromChar(start);
-    console.log(el);
+    console.log("abcjsEditor el", el);
   }
 }

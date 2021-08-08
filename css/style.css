@@ -1,0 +1,16 @@
+#abc-display {
+    display: block;
+    unicode-bidi: embed;
+    font-family: monospace;
+    white-space: pre;
+    border: 0 none white;
+    overflow: hidden;
+    padding: 0;
+    outline: none;
+    padding: 1em;
+    background-color: #dddbdb
+}
+
+#abc-edit {
+    display: none;
+}
