@@ -6,34 +6,39 @@ K: Gmaj
 Q: 1/2=100
 R: Tuning: D,A,DGBe
 R: Chord shapes:
-R: G: 550433
-R: D: 05023x
-R: C: 1010x98x
-R: D/F#: 40023x
-R: Em: 222000
-R: Bm7: 997777
-R: Am7: 775555
+R: G: 5-5-0-4-3-3
+R: D1: 0-5-0-2-3-x
+R: D1(ii): 0-5-0-7-7-0
+R: D1(iii): 12-12-12-11-10-10
+R: D/F#: 4-0-0-2-3-x
+R: C1: x-3-0-2-1-0
+R: C1(ii)+9: x-3-0-5-5-0
+R: C1(iii): 10-10-10-9-8-8
+R: Em: 2-2-2-0-0-0
+R: Em(ii): x-7-9-9-8-0
+R: Bm7: 9-9-7-7-7-7
+R: Am7: 7-7-5-5-5-5
 %A
-|:G2BG EGDC|B,DGB AGAB|c2ec BcdB|cABG AGED|
-w: G       |G         |C __ Bm7 | Am7 ___ D|
-w: G       |G         |Am7 __ Bm7 | C ___ D|
-w: G       |G         |C __ Bm7 | D      |
-w: G       |G         |Am7 __ Bm7 | Am7 ___ D|
+|:G2BG EGDC|B,DGB AGAB|c2ec BcdB      |cABG AGED            |
+w: G       |G         |C1(iii) __ Bm7  | Am7 ___ D1(ii)     |
+w: G       |G         |Am7 __ Bm7     | C1(iii) ___ D1(iii) |
+w: G       |G         |C1(iii) __ Bm7 | D1(ii)              |
+w: G       |G         |Am7 __ Bm7     | Am7 ___ D1(ii)      |
 %A
-GABG EGDC|B,DGB AGAB|cdef g2ge|dBAB G2|D2:|
-w: G       |G         |C          |D
-w: G       |G         |C          |D
-w: G       |G         |C          |D
-w: G       |G         |C          |D
+GABG EGDC  |B,DGB AGAB|cdef g2ge   |dBAB G2 D2    :|
+w: G       |G         |C1(ii)+9    |D1(ii)         |
+w: G       |G         |C1(ii)+9    |D1(ii) ___D/F# |
+w: G       |G         |C1(ii)+9    |D1(ii)         |
+w: G       |G         |C1(ii)+9    |D1(ii) ___D/F# |
 %B
-|:B/2A/2G dG eGdG|BGdB cAAA|B/2A/2GBd edef|gdBG AGEG|
-w: G _/ _/ _/ C   |Bm7 ___Am7 | G   | Am7 ___D |
-w: G              | G ___D/F#| G   | Am7 ___D |
-w: G ____C        |Bm7 ___Am7 | G   | Am7 ___D |
-w: G              | G ___D/F#| G   | Am7 ___D |
+|:B/2A/2G dG eGdG       |BGdB cAAA  |B/2A/2GBd edef|gdBG AGEG      |
+w: G _/ _/ _/ C1(iii)   |Bm7 ___Am7 | G            | Am7 ___D1(ii) |
+w: G                    | G ___D/F# | G            | Am7 ___D1(ii) |
+w: G ____C1(ii)+9       |Bm7 ___Am7 | G            | Am7 ___D1(ii) |
+w: G                    | G ___D/F# | G            | Am7 ___D1(ii) |
 %B
-BGBd edef|g2fg afdf|g2fg egdB | cABG AGEG:||
-w: G _/ _/ _/ Bm7 | C __ D | Em _/ _/ Bm7  | Am7 __ D |
-w: G _/ _/ _/ Bm7 | C __ D | Em _/ _/ Bm7  | Am7 __ D |
-w: G              | Am7 __ D | Em        | Am7 __ D |
-w: G              | Am7 __ D | Em ___Bm7 | Am7 __ D |
+BGBd edef         |g2fg afdf           |g2fg egdB          | cABG AGEG    :||
+w: G _/ _/ _/ Bm7 | C1(ii)+9 __ D1(ii) | Em(ii) _/ _/ Bm7  | Am7 __ D1(ii) ||
+w: G _/ _/ _/ Bm7 | C1(iii) __ D1(iii) | Em(ii) _/ _/ Bm7  | Am7 __ D/F#   ||
+w: G              | Am7 __ D1(ii)      | Em(ii)            | Am7 __ D1(ii) ||
+w: G              | Am7 __ D1(ii)      | Em(ii) ___Bm7     | Am7 __ D1/F#  ||

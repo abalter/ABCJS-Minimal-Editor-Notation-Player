@@ -1,0 +1,32 @@
+X: 2
+T: The Wise Maid
+R: reel
+M: 4/4
+L: 1/8
+K: Dmaj
+Q: 1/2=80
+R: Tuning: D,A,DGBe
+R: Chord Shapes
+R: D: 05423x
+R: A7sus: 002030
+R: G: 550000
+R: A1: x0222x
+R: Em2: 2x2000
+R: Bm1: 7x7555
+R: A4: 007650
+%A.1
+|: DE | F2FG FEDE | FAAB AFED| d2 e/f/g fdec | dBAF BE E/F/E |
+w: D  | D __A7sus  | D        | G _____A1      | D  ___A1    |
+w:    | D          | F#m      | Em2            | Em2 ___A4   |
+%A.2
+F2FG FEDE | FAAB AFED | d2 e/f/g fdec | dBAG FD   :|
+w: D      | D ___G    | D             | G ___A     |
+w: D      | D/F#      | Em2           | Asus ___A4 |
+%B.1
+|: FA | d2 AG FDFA | dfaf gfeg  | fAdf eAce   | dfed cA A/B/A |
+w: D  | D          | D ___A7sus | D  ___A7sus | A7sus  ___D   |
+w: D  | Bm1        | Bm1 ___A4  | Bm1 ___A4   | A4            |
+%B.2
+BDGB ADFA   | dfaf gfed | B/c/d ce dBAG | FAEA D2  :| 
+w: G        | G         | A1            | A1 ___D   |
+w: G ___F3m | Em2       | A4            | A4 ___D   |

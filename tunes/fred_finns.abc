@@ -4,14 +4,15 @@ R: reel
 M: 4/4
 L: 1/8
 K: Dmaj
-Q: 1/2=100
+Q: 1/2=80
 R: Chord Shapes
-R: D(1): xx0775
+R: D1: 05023x
+R: D1(iv): xx0775
 R: Em/D: xx0987
 R: Bm/D: xx0432
 R: A/D: xx0655
 R: G/D: xx0433
-R: D(2): 05777x
+R: D1(ii): 05777x
 R: Em: 222000
 R: G: 55043x
 R: A: 707650
@@ -19,15 +20,25 @@ R: D/F#: 40023x
 R: Bm7: 997777
 R: C: 1010x98x
 R: Am7: 775555
-%A1,2
-|:"^D(1)"A3F ABde | "^D"fdec d2cd | "^Em/D"BEE2 ~G3B | "^Em/D"AFF2 dFAF |
-"^D"~A3F ABde | "^D"fdec d2cd | "^Em/D"BAGB ABde | "^Em/D"faeg fdd2 :|
-%B1,2
-|:"^D(1)"fdad bdaf | "^D"dfaf gfed | "^Bm/D"fbba ~b3a | "^Bm/D""^G/D"fbba "^""^A/D"fe"^""A/D"de |
-"D"fdad bdaf | "D"dfaf gfed | "G/D"BAGB ABde | "A/D"faeg fdd2 :|
-%A3,4
-|:"^D(2)"A3F ABde | "^D"fdec d2cd | "^Em"BEE2 "^G"~G3B | "^D"AFF2 "^A"dFAF |
-"^D"~A3F ABde | "^D"fdec d2cd | "^Em"BAGB "^G"ABde | "^D"faeg "^A"fdd2 :|
-%B3,4
-|:"^D"fdad "^G"bdaf | "^D/F#"dfaf gfed | "^Bm7"fbba ~b3"^D/F#""^-"a | "^G"fbba "^A"fede |
-"^D"fdad bdaf | "^D"dfaf gfed | "^G"BAGB ABde | "^A"faeg "^-""^D"fdd2 :|
+%A
+|:A3F ABde  | fdec d2cd | BEE2 ~G3B | AFF2 dFAF |
+w: D1(iv)   | D1(iv)    | Em/D      | Em/D      |     
+w: D1(iv)   | D1(iv)    | Em/D      | Em/D      |     
+w: D1(ii)   | D1(ii)    | Em __G    | D __A     |
+w: D1(ii)   | D1(ii)    | Em __G    | D __A     |
+~A3F ABde   | fdec d2cd | BAGB ABde | faeg fdd2 :|
+w: D1(iv)   | D1(iv)    | Em/D      | Em/D       | 
+w: D1(iv)   | D1(iv)    | Em/D      | Em/D       |     
+w: D1       | D1        | G         | A          |   
+w: D1       | D1        | G         | A          |   
+%B
+|:fdad bdaf | dfaf gfed | fbba ~b3a     | fbba fede     |
+w: D1(ii)   | D1(ii)    | Bm/D          | Bm/D _/ __A/D |
+w: D1(ii)   | D1(ii)    | Bm/D          | G/D ___A/D    |
+w: D ___G   | D/F#      | Bm7           | G ___A        |
+w: D ___G   | D         | Bm7 -/ __D/F# | G ___A        |
+fdad bdaf | dfaf gfed | BAGB ABde | faeg fdd2 :|
+w: D      | D         | G         | A          |
+w: D      | D         | G         | A          |
+w: D      | D         | G         | A          |
+w: D      | D         | G         | A ___D     |

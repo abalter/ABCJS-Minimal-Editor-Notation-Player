@@ -9,7 +9,7 @@ R: jig
 M: 6/8
 L: 1/8
 K: Edor
-Q: 3/8=100
+Q: 3/8=80
 R: Tuning: DAdgbe
 R: Chord Shapes:
 R: Em: 2x2000
@@ -33,7 +33,7 @@ R: jig
 M: 6/8
 L: 1/8
 K: Edor
-Q: 1/2=100
+Q: 1/2=80
 R: Tuning: DAdgbe
 R: Chord Shapes:
 R: Em: 2x2000
@@ -55,7 +55,7 @@ R: jig
 M: 6/8
 L: 1/8
 K: Edor
-Q: 1/2=100
+Q: 1/2=80
 R: Tuning: DAdgbe
 R: Chord Shapes:
 R: Em: 2x2000

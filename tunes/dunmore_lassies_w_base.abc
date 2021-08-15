@@ -4,7 +4,7 @@ R: reel
 M: 4/4
 L: 1/8
 K: Emin
-Q: 1/2=100
+Q: 1/2=80
 V:1 gchord=down
 EDEF GFGA |Be {ed}e2 Be {ed}e2 |EDEF GFGB|AGBG AGED|
 EDEF GFGA |Beed e2 ef |gefd edBG |AcBA GEDG :|

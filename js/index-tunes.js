@@ -4,8 +4,8 @@ let tune_selector = document.getElementById("tune-selector");
 window.onload = function()
 {
     console.log("windows onload");
-    tune_selector.value = "cooleys"
-    fetchTune("cooleys.abc");
+    tune_selector.value = "dan breens"
+    fetchTune("dan_breens.abc");
     selectionChangeCallback();
     // Show Error When Use Fetch Method With Import Method
     fetch(tunes_list_path,  {mode: 'no-cors'})

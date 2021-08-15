@@ -1,0 +1,39 @@
+T: Music In The Glen
+R: reel
+M: 4/4
+L: 1/8
+K: Gmaj
+Q: 1/2=80
+R: Tuning: D,A,DGBe
+R: Chord shapes:
+R: G: 550433
+R: D: 05023x
+R: C: 1010x98x
+R: D/F#: 40023x
+R: Em: 222000
+R: Bm7: 997777
+R: Am7: 775555
+%A
+|:G2BG EGDC|B,DGB AGAB|c2ec BcdB|cABG AGED|
+w: G       |G         |C __ Bm7 | Am7 ___ D|
+w: G       |G         |Am7 __ Bm7 | C ___ D|
+w: G       |G         |C __ Bm7 | D      |
+w: G       |G         |Am7 __ Bm7 | Am7 ___ D|
+%A
+GABG EGDC|B,DGB AGAB|cdef g2ge|dBAB G2|D2:|
+w: G       |G         |C          |D
+w: G       |G         |C          |D
+w: G       |G         |C          |D
+w: G       |G         |C          |D
+%B
+|:B/2A/2G dG eGdG|BGdB cAAA|B/2A/2GBd edef|gdBG AGEG|
+w: G _/ _/ _/ C   |Bm7 ___Am7 | G   | Am7 ___D |
+w: G              | G ___D/F#| G   | Am7 ___D |
+w: G ____C        |Bm7 ___Am7 | G   | Am7 ___D |
+w: G              | G ___D/F#| G   | Am7 ___D |
+%B
+BGBd edef|g2fg afdf|g2fg egdB | cABG AGEG:||
+w: G _/ _/ _/ Bm7 | C __ D | Em _/ _/ Bm7  | Am7 __ D |
+w: G _/ _/ _/ Bm7 | C __ D | Em _/ _/ Bm7  | Am7 __ D |
+w: G              | Am7 __ D | Em        | Am7 __ D |
+w: G              | Am7 __ D | Em ___Bm7 | Am7 __ D |

@@ -9,13 +9,26 @@ R: jig
 M: 6/8
 L: 1/8
 K: Ador
-Q: 3/8=100
+Q: 3/8=80
 R: Chord Shapes:
 R: Am1: x02210
 R: G1(i): 550000
 R: Em2: 5x5000
 R: C1: x32010
-|:"Am1"EAA EAA|BAB "G1(i)"G2A|"Em2"Bee edB|def "G1(i)"gfg|
-eAA eAA|BAB G2A|Bee edB|dBA A3:|
-eaa age|dBA G2A|Bee edB|def gfg|
-eaa age|dBA G2A|Bee edB|dBA A3:| 
+R: D1(v): x5023x
+%A.1
+|: EAA EAA | BAB G2A      | Bee edB | dBA GED     |
+w: Am1     | Am1 __ G1(i) | Em2     | Em2 __G1(i) |
+w: Am1     | Am1 __ G1(i) | Em2     | Em2         |
+%A.2
+EAA EAA  | BAB G2A      | Bee edB | dBA A3   :|
+w: Am1   | Am1 __G1(i)  | Em2     | Em2 __Am1 |
+w: F     | F __G1(i)    | Em2     | Em2 __Am1 |
+%B.2
+eaa age  | dBA G2A       | Bee edB | def gfg |
+w: Am1   | C1 __G1(i)    | Em2     | Em2     |
+w: D1(v) | D1(v) __G1(i) | Em2     | Em2     |
+%B.2
+eaa age  | dBA G2A       | Bee edB | dBA A3    :| 
+w: Am1   | C1 __G1(i)    | Em2     | Em2 __Am1  |
+w: D1(v) | D1(v) __G1(i) | Em2     | Em2 __Am1  | 
