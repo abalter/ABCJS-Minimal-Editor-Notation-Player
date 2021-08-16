@@ -10,7 +10,7 @@ M: 6/8
 L: 1/8
 K: Edor
 Q: 3/8=80
-R: Tuning: DAdgbe
+R: Tuning: D,A,DGBe
 R: Chord Shapes:
 R: Em: 2x2000
 R: D: 0x023x
@@ -34,7 +34,7 @@ M: 6/8
 L: 1/8
 K: Edor
 Q: 1/2=80
-R: Tuning: DAdgbe
+R: Tuning: D,A,DGBe
 R: Chord Shapes:
 R: Em: 2x2000
 R: D: 0x032x or 05032x
@@ -56,7 +56,7 @@ M: 6/8
 L: 1/8
 K: Edor
 Q: 1/2=80
-R: Tuning: DAdgbe
+R: Tuning: D,A,DGBe
 R: Chord Shapes:
 R: Em: 2x2000
 R: D: 0x032x or 05032x

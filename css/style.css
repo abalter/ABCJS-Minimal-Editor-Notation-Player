@@ -1,8 +1,13 @@
+body {
+	max-width: 1024px;
+	margin: 0 auto;
+}
+
 #abc-display {
     display: block;
     unicode-bidi: embed;
     font-family: monospace;
-    font-size: 1em;
+    font-size: 0.9em;
     white-space: pre;
     border: 0 none white;
     overflow: hidden;
@@ -10,10 +15,20 @@
     outline: none;
     padding: 1em;
     background-color: #dddbdb;
+	max-width: 1024px;
 }
 
 #abc-edit {
     display: none;
+}
+
+#paper {
+	/* max-width: 1024px; */
+}
+
+#paper.abcjs-container {
+	/* padding: 0;
+	max-width: 1024px; */
 }
 
 /*https://www.filamentgroup.com/lab/select-css.html*/
@@ -26,7 +41,7 @@
 	color: #444;
 	line-height: 1.3;
 	padding: .6em 1.4em .5em .8em;
-	width: 100%;
+	width: 40em;
 	max-width: 100%;
 	box-sizing: border-box;
 	margin: 2em 0;
@@ -58,6 +73,10 @@
 }
 #tune-selector option {
 	font-weight:normal;
+}
+
+body {
+	margin: 0 auto;
 }
 
 /*

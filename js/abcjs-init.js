@@ -60,6 +60,7 @@ function updateTune()
         },
       },
       abcjsParams: {
+        responsive: "resize",
         add_classes: true,
         clickListener: clickListener,
         format: {
@@ -71,6 +72,30 @@ function updateTune()
       selectionChangeCallback: selectionChangeCallback,
     }
   );
+  
+  console.log("tune updates, formatting abcjs-container");
+
+  let abcjs_container_height = $('.abcjs-container').css('height');
+  let abcjs_container_padding = $('.abcjs-conteiner').css('padding');
+  let paper_height = $('#paper').css('height');
+  let paper_padding = $('#paper').css('padding');
+  let svg_height = $('#paper').find('svg').css('height');
+  let svg_padding = $('#paper').find('svg').css('padding');
+
+  svg_height = document.getElementById('paper').getElementsByTagName('svg')[0].getBoundingClientRect().height;
+
+
+  console.log(
+    'abcjs_container_height:', abcjs_container_height,
+    'abcjs_container_padding', abcjs_container_padding,
+    'paper_height', paper_height,
+    'paper_padding', paper_padding,
+    'svg_height', svg_height,
+    'svg_padding', svg_padding
+  );
+
+  $('div.abcjs-container').css('height', svg_height);
+  $('div.abcjs-container')[0].style.height = svg_height;
 }
 
 
