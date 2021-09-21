@@ -1,0 +1,21 @@
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 1
+T: The Drunken Landlady
+R: reel
+M: 4/4
+L: 1/8
+Q: 140
+K: Edor
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: Em: 2x2000
+R: D: 0x023x
+R: A: x02220
+"Em""^2x2000"BE~E2 BAFA|BE~E2 BAFA|"A""^x02220"ABAF "D""^0x023x"D2FD|FA~A2 BAFA|
+"Em""^2x2000"BE~E2 BAFA|BE~E2 BAFA|"D""^0x023x"A2Bc dfec|dBAF "Em""^2x2000"E4:|
+|:"Em""^2x2000"Beed e2de|f2df efdB|"A""^x02220"ABAF "D""^0x023x"D2FD|FA~A2 BAFA|
+"Em""^2x2000"Beed e2de|f2df efdB|"D""^0x023x"A2Bc dfec|dBAF "Em""^2x2000"E4:| 

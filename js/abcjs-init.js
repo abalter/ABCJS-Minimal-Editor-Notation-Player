@@ -26,7 +26,8 @@ window.onload = function()
     .then(Normal =>
     {
         // console.log("Normal:", Normal)
-        console.log("got tunelise");
+        console.log("got tunelist");
+        console.log("tune_list");
         // document.getElementById("tune-list").innerHTML = Normal.split("\n").join("<br/>\n");
         
         let  tune_list = Normal.split("\n").sort();
@@ -40,6 +41,8 @@ window.onload = function()
 
 function updateTune()
 {
+  console.log("updateTune");
+
   let abcjsEditor = new ABCJS.Editor(
     'abc-display', 
     {
@@ -268,6 +271,7 @@ function addTunesToSelector(tune_list)
     tune_selector.add(new Option("", ""));
     tune_list.forEach( tune_name =>
     {
+        console.log("adding tune: ", tune_name);
         let tune_option = new Option(tune_name, tune_name + ".abc");
         tune_selector.add(tune_option);
         // tune_selector.appendChild(tune_option);

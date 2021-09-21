@@ -1,0 +1,20 @@
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 3
+T: The High
+R: reel
+M: 4/4
+L: 1/8
+K: Amix
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: A: x02220
+R: G: 5x0033
+R: D: 0x023x
+|:"A""^x02220"a2 fa ec A2|cAeA fAeA|a2 fa ec A2|Bcdc "G""^5x0033"BG G2|
+"A""^x02220"a2 fa ec A2|cdef "G""^5x0033"g2 fg|"D""^0x023x"afge fdec|Bcdc "G""^5x0033"BG G2:|
+|:"A""^x02220"cAeA fAeA|cAaf ec A2|cAeA fAeA|Bcdc "G""^5x0033"BG G2|
+"A""^x02220"cAeA fAeA|cdef "G""^5x0033"g2 fg|"D""^0x023x"afge fdec|Bcdc "G""^5x0033"BG G2:| 

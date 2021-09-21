@@ -1,0 +1,47 @@
+X: 1
+T: Fred Finn's
+R: reel
+M: 4/4
+L: 1/8
+K: Dmaj
+R: Chord Shapes
+R: D(1): xx0775
+R: Em/D: xx0987
+R: Bm/D: xx0432
+R: A/D: xx0655
+R: G/D: xx0433
+R: D(2): 05777x
+R: Em: 222000
+R: G: 55043x
+R: A: 707650
+R: D/F#: 40023x
+R: Bm7: 997777
+R: C: 1010x98x
+R: Am7: 775555
+%A1,2
+|:"^D(1)"A3F ABde | "^D"fdec d2cd | "^Em/D"BEE2 ~G3B | "^Em/D"AFF2 dFAF |
+"^D"~A3F ABde | "^D"fdec d2cd | "^Em/D"BAGB ABde | "^Em/D"faeg fdd2 :|
+%B1,2
+|:"^D(1)"fdad bdaf | "^D"dfaf gfed | "^Bm/D"fbba ~b3a | "^Bm/D""^G/D"fbba "^""^A/D"fe"^""A/D"de |
+"D"fdad bdaf | "D"dfaf gfed | "G/D"BAGB ABde | "A/D"faeg fdd2 :|
+%A3,4
+|:"^D(2)"A3F ABde | "^D"fdec d2cd | "^Em"BEE2 "^G"~G3B | "^D"AFF2 "^A"dFAF |
+"^D"~A3F ABde | "^D"fdec d2cd | "^Em"BAGB "^G"ABde | "^D"faeg "^A"fdd2 :|
+%B3,4
+|:"^D"fdad "^G"bdaf | "^D/F#"dfaf gfed | "^Bm7"fbba ~b3"^D/F#""^-"a | "^G"fbba "^A"fede |
+"^D"fdad bdaf | "^D"dfaf gfed | "^G"BAGB ABde | "^A"faeg "^-""^D"fdd2 :|
+
+
+
+
+X: 1
+T: Music In The Glen
+R: reel
+M: 4/4
+L: 1/8
+K: Gmaj
+|:G2BG EGDC|B,DGB AGAB|c2ec BcdB|cABG AGED|
+GABG EGDC|B,DGB AGAB|cdef g2ge|dBAB G2|D2:|
+|:B/2A/2G dG eGdG|BGdB cAAA|B/2A/2GBd edef|gdBG AGEG|
+BGBd edef|g2fg afdf|g2fg egdB cABG AGEG:|| 
+

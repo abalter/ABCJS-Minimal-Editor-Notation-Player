@@ -4,10 +4,14 @@ C:traditional
 Z:transcribed by C.McGrew (clark.mcgrew@sunysb.edu)
 R:reel
 M:C|
-Q:1/2=80
+Q:1/2=90
 L:1/8
 K:E Dorian
-ed|"Em"Beed "Bm"BcdB|"D"ADFD ADFD|"Em"EDEF "G"GFGA|"Em"Beef "D"gfed|
-"Em"Beed "Bm"BdcB|"D"ADFD ADFD|"Em"EDEF "G"GFGA|"Bm"Bee^d "Em"e2:|
-ef|"Em"gfga bgeg|"D"fefg afdf|"Em"gfga bgeg|"Bm"afdf "Em"e2ef|
-gfga bgeg|"D"fefg afdf|"G"g2bg "D"f2af|"Em"edef gf:|
+ed   | Beed BcdB    | ADF/E/D ADF/E/D | EDEF GFGA |Beef gfed      |
+w: __|Em ___Bm1(ii) | D               | Em ___G   | Bm1(ii) ___D  |
+   Beed  BdcB    | ADF/E/D ADF/E/D | EDEF GFGA | Bee^d e2   :|
+w: Em ___Bm1(ii) | D               | Em ___G   | D/F# ___Em  |
+ef    | gfga bgeg | fefg afdf | gfga bgeg | afdf e2ef           |
+w: __ | Em1(iii)  | D1(iii)   | Em1(iii)  | Bm1(ii) ___Em1(iii) |
+   gfga bgeg | fefg afdf | g2bg f2af | edef gf    :|
+w: Em1(iii)  | D1(iii)   | G1 __F#m  | Em1 ___D/F# |

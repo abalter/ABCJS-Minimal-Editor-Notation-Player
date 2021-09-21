@@ -1,0 +1,19 @@
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 2
+T: The Famous Ballymote
+R: reel
+M: 4/4
+L: 1/8
+K: Dmix
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: G: 5x0033
+R: D: 0x023x
+R: C: x32010
+|:"D""^0x023x"FDAD FAAB|"C""^x32010"cABG EFGE|"D""^0x03x"FDAD FAAB|"C""^x32010"cAGE "D""^0x023x"ED D2:|
+||"D""^0x023x"FDFA d2 ed|"C""^x32010"cABG EFGE|"D""^0x023x"FDFA "G""^5x0033"d2 ed|"C""^x32010"cAGE "D""^0x023x"ED D2|
+"D""^0x023x"FDFA d2 ed|"C""^x32010"cABG EFGE| "D""^0x023x"FDFA "G""^5x0033"df ed|"C""^x32010"cAGE "D""^0x023x"ED D2|| 
