@@ -1,0 +1,18 @@
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 9
+T: Dan Breen's
+R: reel
+M: 4/4
+L: 1/8
+K: Edor
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: Am: x02210
+R: D/F#: 400320
+R: G: 5x0033
+|:"Am""^x02210"e2dB ABAG|EAAG A2Bd|e2dB "D/F#""^400320"ABAG|"G""^5x0033"EGGF G2Bd:|
+|:"Am""^x02210"e3g edBd|eA (3AAA edBd|e2eg "D/F#""^400320"edBc|"G""^5x0033"d2ef g2fg:| 

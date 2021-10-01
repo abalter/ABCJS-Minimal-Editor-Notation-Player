@@ -1,0 +1,20 @@
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 1
+T: The Red-Haired Lass
+R: reel
+M: 4/4
+L: 1/8
+K: Gmaj
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: G: 5x0033
+R: D: 0x023x
+R: C: x32010
+   "G""^5x0033"DGGF G2 BG|G2 BG "D""^0x023x"AGEG|"G""^5x0033"DGGF GABd|egdB "C""^x32010"c2 BA|
+   "G""^5x0033"DGGF G2 BG|G2 BG "D""^0x023x"AGEG|"G""^5x0033"DGGF GABd|gedB "C""^x32010"c2 Bc||
+   "G""^5x0033"d2 gd edgd|d2 gd "C""^x32010"BABc|"G""^5x0033"d2 gd edef|gedB "C""^x32010"c2 Bc|
+   "G""^5x0033"d2 gd edgd|d2 gd BABd|"C""^x32010"c3A "G""^5x0033"B3A|GABd "D""^0x032x"egdB|| 
