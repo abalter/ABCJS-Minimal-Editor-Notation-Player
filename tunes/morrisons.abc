@@ -9,29 +9,30 @@ R: Tuning: D,A,DGBe
 R: Chord Shapes:
 R: Em: 2x2000
 R: D: 0x032x or 05032x
+R: D(ii): 05077x
 R: D/F#: 400320
 R: G: 5x0033 or 5x5033
-R: A: x02210
+R: A1: x02210
+R: A1(ii): x07650
 R: C: x30210
 %A
-|:EDE B2B|EBE AFD|EDE B2c|dcB AFD|
-w: Em  | D     | Em __ A |  D |
-w: Em | D | E | G __D |
-E3 B3|EBE AFD|G2G FGA|dAG FED:|
-w: Em | D | Em  A  | D |
-w: Em | Em __D | C | D |
+|: EDE BAB | EBE AFD | EDE B2c | dcB AFD    |
+w: Em      | ___D    | Em      | A1(ii) __D |
+w: Em      | _____D  | Em      | G      __D |
+   EDE BAB | EBE AFD | G2G FGA | dAG FED :|
+w: Em      | _____D  | C       | D        |
+w: Em      |  ___F#m | G __F#m | G __D/F# |
 %B
-Bee fee|aee fee|Bee fee|a2g fed|
-w: Em | Em | Em  | D  |
-w: Em | Em | Em | D |
-Bee fee|aee fee|gfe d2A|BAG FGA|
-w: Em | Em __ A | D | D  |
-w: Em | Em | C | D |
-Bee fee|aee fee|Bee fee|faf def|
-w: Em |Em | Em | D  |
-w: Em | Em | Em | D |
-g2g gfe|def g2d|edc d2A|BAG FED||
-w: G  | D/F#  __  G |A __D | D ||
-w: C | G | D | C __ D||
-
+   Bee fee | aee fee | Bee fee | a2g fed   |
+w: Em      |         |         | A1(ii) _D |
+w: Em      |         | F#m     |           |
+   Bee fee | aee fee | gfe d2A | BAG FGA |
+w: Em      |         | G       | D/F#    |
+w: G       |         | A       |         |
+   Bee fee | aee fee | Bee fee | faf def |
+w: Em      |         | F#m     |         |
+w: Em      |         | Em      | D       |
+   g2g gfe | def g2d   | edc d2A | BAG FED ||
+w: G       | D/F#  __G | A1(ii) __D(ii) | ___D/F# ||
+w: G       | D/F#  __G | A1(ii) __D(ii) | ___D/F# ||
 

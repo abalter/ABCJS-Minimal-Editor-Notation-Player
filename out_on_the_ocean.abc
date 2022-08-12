@@ -1,0 +1,20 @@
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 2
+T: Out On The Ocean
+R: jig
+M: 6/8
+L: 1/8
+K: Gmaj
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: G: 5x0033
+R: D: 0x023x
+R: C: x32010
+    |:GE|"G""^5x0033"D2B BAG|BdB "D""^0x023x"A2B|"G""^5x0033"GED G2A|B2B "D""^0x023x"AGE|
+    "G""^5x0033"D2B BAG|BdB "D""^0x023x"A2B|"G""^5x0033"GED G2A|"D""^0x023x"BGE "G""^5x0033"G:|
+    Bd|"C""^x32010"e2e edB|ege edB|"D""^0x023x"d2B def|gfe dBA|
+    "G""^5x0033"G2A B2d|ege d2B|"C""^x32010"AGE G2A|"D""^0x023x"BGE "G""^5x0033"G:| 

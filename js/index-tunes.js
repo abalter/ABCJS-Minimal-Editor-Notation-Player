@@ -22,9 +22,9 @@ window.onload = function()
     .then(Normal =>
     {
         // console.log("Normal:", Normal)
-        console.log("got tunelise");
+        console.log("got tunelist");
         // document.getElementById("tune-list").innerHTML = Normal.split("\n").join("<br/>\n");
-        
+        console.log(tunelist);
         let  tune_list = Normal.split("\n").sort();
         addTunesToSelector(tune_list);
     })
@@ -42,6 +42,7 @@ abc_display.addEventListener('change', (event) =>
 
     // get tune filename
     let tune_filename = event.target.value;
+    console.log("tune_filename: ", tune_filename);
     fetchTune(tune_filename);
     selectionChangeCallback();
 });
@@ -52,6 +53,7 @@ tune_selector.addEventListener('change', (event) =>
 
     // get tune filename
     let tune_filename = event.target.value;
+    console.log("tune_filename: ", tune_filename);s
     fetchTune(tune_filename);
     selectionChangeCallback();
 });

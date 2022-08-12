@@ -1,0 +1,36 @@
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+T: Crowley's
+R: reel
+M: 4/4
+L: 1/8
+K: Dmaj
+Q: 1/2=90
+R: GM7: 550002
+R: G6: 550000
+R: G6(ii): 55030
+R: Bm7: 99777
+R: A: x07650
+R: A (alt): x07655
+R: A (alt): x07675
+R: Em: 2x2000
+R: Em (alt): 222000
+   A3d B2dB | ADFD ADFD | A3A BABc | dfeg fddB |
+w: D        |           |          | G ___A    |
+w: D        |           |          | G _A      |
+w: D        |           | Bm7      |           |
+   ADFA B2 dB | ADFD ADFD  | A3A BABc | d2 eg fdde ||
+w: D          |            |          | G ___A      |
+w: D          |            |          | G _A        |
+w: GM7 ___G6  | ____G6(ii) | Em       | A           |
+   f3a g2fg | eA c/B/A eA c/B/A | f3a g2 fg | afge fdde |
+w: D _G     | A                 | D         | G ___A    |
+w: D _Em    | A                 | D    _G   | __A       |
+w: D _Em    | A ______Bb        | Bm        | G _A    |
+   f3a g2fg | eA c/B/A eA c/B/A | f3a g2 fg | afge fd d2 ||
+w: D _G     | A                 | D         | G ___A      |
+w: D _Em    | A                 | D         | G _A        |
+w: D _Em    | A    ____Bb       | Bm        | G ___A      |

@@ -1,0 +1,20 @@
+%%vocalfont Courier
+%%gchordfont Georgia
+%%textfont Courier
+%%wordsfont Courier
+%%annotationfont Courier
+X: 3
+T: Scatter The Mud
+R: jig
+M: 6/8
+L: 1/8
+K: Ador
+R: Tuning: DAdgbe
+R: Chord Shapes:
+R: Am: x03320
+R: G: 5x0033
+R: D/F#: 400320
+"Am""^x02210"eAA B2A|eAA ABd|eAA "D/F#""^400320"BAB|"G""^5x0033"dBG GBd|
+"Am""^x02210"eAA B2A|eAA AGE|"G""^5x0033"GAB dge|"Am""^x02210"dBA A3:|
+"Am""^x02210"eaa egg|dBA ABd|eaa "D/F#""^400320"egg|"G""^5x0033"dBG GBd|
+"Am""^x02210"eaf g2e|dBA AGE|"G""^5x0033"GAB dge|"Am""^x02210"dBA ABd:| 

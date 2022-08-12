@@ -1,7 +1,7 @@
-%%vocalfont Courier
+%%vocalfont Georgia
 %%gchordfont Georgia
-%%textfont Courier
-%%wordsfont Courier
+%%textfont Georgia
+%%wordsfont Georgia
 %%annotationfont Courier
 X: 3
 T: The High
@@ -9,13 +9,25 @@ R: reel
 M: 4/4
 L: 1/8
 K: Amix
-Q: 1/2=80
+Q: 1/2=90
 R: Tuning: D,A,DGBe
 R: Chord Shapes:
-R: A: x02220
-R: G: 5x0033
-R: D: 0x023x
-|:"A""^x02220"a2 fa ec A2|cAeA fAeA|a2 fa ec A2|Bcdc "G""^5x0033"BG G2|
-"A""^x02220"a2 fa ec A2|cdef "G""^5x0033"g2 fg|"D""^0x023x"afge fdec|Bcdc "G""^5x0033"BG G2:|
-|:"A""^x02220"cAeA fAeA|cAaf ec A2|cAeA fAeA|Bcdc "G""^5x0033"BG G2|
-"A""^x02220"cAeA fAeA|cdef "G""^5x0033"g2 fg|"D""^0x023x"afge fdec|Bcdc "G""^5x0033"BG G2:|   
+R: A1: 707655
+R: A1(ii): x07650
+R: G1: 550033
+R: G1(ii)/A: x0543x
+R: D1: 0x023x
+R: D1(ii): 00777x
+R: D3(ii): x04230
+R: D/F#: 40023x
+R: F#m: 404333
+% A
+|: a2 fa ec A2 | cAeA fAeA | a2 fa ec A2 | Bcdc BG G2 |
+w: A1(ii)      | ___  ____ | ____        | G1(ii)/A   |
+   a2 fa ec A2 | cdef g2 fg    | afge fdec | Bcdc BG G2 :|
+w: A1(ii)      | ____ G1(ii)/A | D3(ii)    | ____ __ G1 |
+% B
+|: cAeA fAeA    | cAaf ec A2 | cAeA fAeA     | Bcdc BG G2 |
+w: A1 ___D1(ii) _A1 |            | A1 ___D1(ii) _A1  | ____ G1    |
+   cAeA fAeA    | cdef g2 fg | afge fdec  | Bcdc BG G2    :|
+w: A1 ___D1(ii) _A1 | ____G      | F#m  ___Em | D1 ___D/F# _G  |     
