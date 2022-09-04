@@ -1,52 +1,34 @@
-console.log("in abcjs-init.js");
-
-debug_level = 3
-
-function debug(level, message)
-{
-
-  // console.log(new Error);
-  if (debug_level >= level)
-  {
-    console.log(message);
-  }
-}
-
-debug(0, "in abcjs-init.js");
-
 var abcjsEditor;
 
 let tunes_list_path = "tunes/tune_list.txt";
 let tune_selector = document.getElementById("tune-selector");
 let abc_display = document.getElementById('abc-display');
-let tune_textarea = document.getElementById("abc-display");
-
-$(tune_textarea).on('click', updateTune());
 
 window.onload = function()
 {
-    debug(1, "windows onload");
-    tune_selector.value = "dan_breens"
-    tune_selector.selectedIndex = 1;
-    fetchTune("dan_breens.abc");
-    selectionChangeCallback();
+    console.log("windows onload");
+
+    // tune_selector.value = "dan_breens"
+    // tune_selector.selectedIndex = 1;
+    // fetchTune("dan_breens.abc");
+    // selectionChangeCallback();
     // Show Error When Use Fetch Method With Import Method
     fetch(tunes_list_path,  {mode: 'no-cors'})
     .then(response =>
     {
-        debug(2, "response: " + response);
-        return response;
+        console.log("response:", response);
+        return response
     })
     .then(data => 
     {
-
-        debug(2, "data: " + data)
+        console.log("data:", data)
         return data.text()
     })
     .then(Normal =>
     {
         // console.log("Normal:", Normal)
-        debug(1, "got tunelist");
+        console.log("got tunelist");
+        console.log("tune_list");
         // document.getElementById("tune-list").innerHTML = Normal.split("\n").join("<br/>\n");
         
         let  tune_list = Normal.split("\n").sort();
@@ -54,15 +36,13 @@ window.onload = function()
     })
     .catch(err =>
     {
-        debug(1, 'Fetch problem show: ' + err.message);
+        console.log('Fetch problem show: ' + err.message);
     });
 }
 
-
-
 function updateTune()
 {
-  debug(1, "updateTune");   
+  console.log("updateTune");
 
   let abcjsEditor = new ABCJS.Editor(
     'abc-display', 
@@ -97,16 +77,17 @@ function updateTune()
     }
   );
   
-  debug(1, "tune updates, formatting abcjs-container");
+  console.log("tune updates, formatting abcjs-container");
 
-  // let abcjs_container_height = $('.abcjs-container').css('height');
-  let abcjs_container_padding = $('.abcjs-container').css('padding');
+  let abcjs_container_height = $('.abcjs-container').css('height');
+  let abcjs_container_padding = $('.abcjs-conteiner').css('padding');
   let paper_height = $('#paper').css('height');
   let paper_padding = $('#paper').css('padding');
   let svg_height = $('#paper').find('svg').css('height');
   let svg_padding = $('#paper').find('svg').css('padding');
 
   svg_height = document.getElementById('paper').getElementsByTagName('svg')[0].getBoundingClientRect().height;
+
 
   console.log(
     'abcjs_container_height:', abcjs_container_height,
@@ -171,7 +152,6 @@ function clickListener(
   mouseEvent
 ) 
 {
-  debug(1, "clickListener")
   var lastClicked = abcElem.midiPitches;
   if (!lastClicked) return;
 
@@ -191,46 +171,46 @@ function clickListener(
 
 function selectionChangeCallback(start, end) 
 {
-  debug(1, "selectionChangeCallback");
-  debug(1, "start: " + start + "  end: " + end);
+  console.log("selectionChangeCallback");
 
   if (abcjsEditor) {
-    debug(2, "abcjsEditir is True")
     var el = abcjsEditor.tunes[0].getElementFromChar(start);
-    debug(2, "abcjsEditor el: ", el);
+    console.log("abcjsEditor el", el);
   }
 }
 
 function fetchTune(tune_filename)
 {
-    debug(1, "fetchTune")
-    debug(2, "tune_filename: " + tune_filename);
+    console.log("fetchTune:", tune_filename);
 
     // get tune filename
     // let tune_filename = event.target.value;
     // tune_filename = tune_selector.nodeValue;
 
+    console.log("tune filename:", tune_filename);
+
     // get tune text
-    fetch('tunes/' + tune_filename,  {mode: 'no-cors'})
+    fetch('tunes/' + tune_filename)
     .then( response => {
-        debug(2, "response: " + response);
-        return response;
+        console.log("response:", response);
+        return response
     })
     .then(  data => {
-        debug(2, "data: " + data)
-        return data.text();
+        console.log("data:", data)
+        return data.text()
     })
     .then(Normal => {
-        debug(2, "Normal: got tune text");
-        // let tune_textarea = document.getElementById("abc-display");
-        debug(3, "tune textarea: " + tune_textarea);
+        // console.log("Normal:", Normal)
+        console.log("got tune text");
+        let tune_textarea = document.getElementById("abc-display");
+        console.log("tune textarea:", tune_textarea);
         tune_textarea.value = Normal;
         tune_textarea.style.height = "auto";
         tune_textarea.style.height = (tune_textarea.scrollHeight) + "px";
         updateTune();
     })
     .catch( err => {
-        debug(2, 'Fetch problem show: ' + err.message);
+        console.log('Fetch problem show: ' + err.message);
     });
 }
 
@@ -240,20 +220,45 @@ function fetchTune(tune_filename)
 
 abc_display.addEventListener('change', (event) => 
 {
-    debug(2, "abc_display.addEventListener-event:" + event);
+    console.log("abc_display.addEventListener");
+    console.log("event:", event);
+    console.log("event.target.value:", event.target.value);
 
     // get tune filename
     let tune_filename = event.target.value;
+    let tune_name = tune_filename.replace(/\..*/, "");
+    console.log("tune_filename:", tune_filename);
+
+    // set rest url
+    const url = new URL(window.location);
+    url.searchParams.set('tune', tune_name);
+    window.history.pushState({}, '', url);
+
+    // fetch and render tune
     fetchTune(tune_filename);
     selectionChangeCallback();
 });
 
 tune_selector.addEventListener('change', (event) => 
 {
-    debug(2, "tune_selector.addEventListener - event: " + event);
+    console.log("tune_selector.addEventListener");
+    console.log("event:", event);
+
+    const urlSearchParams = new URLSearchParams(window.location.search);
+    const params = Object.fromEntries(urlSearchParams.entries());
+    console.log("params: ", params);
 
     // get tune filename
     let tune_filename = event.target.value;
+    let tune_name = tune_filename.replace(/\..*/, "");
+    console.log("tune_filename:", tune_filename);
+
+    // set rest url
+    const url = new URL(window.location);
+    url.searchParams.set('tune', tune_name);
+    window.history.pushState({}, '', url);
+
+    // fetch and render tune
     fetchTune(tune_filename);
     selectionChangeCallback();
 });
@@ -289,12 +294,10 @@ tune_selector.addEventListener('change', (event) =>
 
 function addTunesToSelector(tune_list)
 {
-    debug(1, "addTunesToSelector");
-    debug(3, "tune_list: " + tune_list)
     tune_selector.add(new Option("", ""));
     tune_list.forEach( tune_name =>
     {
-        debug(3, "adding tune: " + tune_name);
+        console.log("adding tune: ", tune_name);
         let tune_option = new Option(tune_name, tune_name + ".abc");
         tune_selector.add(tune_option);
         // tune_selector.appendChild(tune_option);

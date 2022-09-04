@@ -17,8 +17,29 @@ return /******/ (function() { // webpackBootstrap
   \******************/
 /***/ (function(module, __unused_webpack_exports, __webpack_require__) {
 
-__webpack_require__(/*! ./license */ "./license.js");
+/**!
+Copyright (c) 2009-2022 Paul Rosen and Gregory Dyke
 
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+ **This text is from: http://opensource.org/licenses/MIT**
+!**/
 var version = __webpack_require__(/*! ./version */ "./version.js");
 
 var animation = __webpack_require__(/*! ./src/api/abc_animation */ "./src/api/abc_animation.js");
@@ -26,6 +47,8 @@ var animation = __webpack_require__(/*! ./src/api/abc_animation */ "./src/api/ab
 var tuneBook = __webpack_require__(/*! ./src/api/abc_tunebook */ "./src/api/abc_tunebook.js");
 
 var sequence = __webpack_require__(/*! ./src/synth/abc_midi_sequencer */ "./src/synth/abc_midi_sequencer.js");
+
+var strTranspose = __webpack_require__(/*! ./src/str/output */ "./src/str/output.js");
 
 var abcjs = {};
 abcjs.signature = "abcjs-basic v" + version;
@@ -41,6 +64,7 @@ abcjs.TimingCallbacks = __webpack_require__(/*! ./src/api/abc_timing_callbacks *
 var glyphs = __webpack_require__(/*! ./src/write/abc_glyphs */ "./src/write/abc_glyphs.js");
 
 abcjs.setGlyph = glyphs.setSymbol;
+abcjs.strTranspose = strTranspose;
 
 var CreateSynth = __webpack_require__(/*! ./src/synth/create-synth */ "./src/synth/create-synth.js");
 
@@ -81,38 +105,6 @@ abcjs.synth = {
 abcjs['Editor'] = __webpack_require__(/*! ./src/edit/abc_editor */ "./src/edit/abc_editor.js");
 abcjs['EditArea'] = __webpack_require__(/*! ./src/edit/abc_editarea */ "./src/edit/abc_editarea.js");
 module.exports = abcjs;
-
-/***/ }),
-
-/***/ "./license.js":
-/*!********************!*\
-  !*** ./license.js ***!
-  \********************/
-/***/ (function() {
-
-/**!
-Copyright (c) 2009-2021 Paul Rosen and Gregory Dyke
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-**This text is from: http://opensource.org/licenses/MIT**
-!**/
 
 /***/ }),
 
@@ -234,6 +226,161 @@ module.exports = animation;
 
 /***/ }),
 
+/***/ "./src/api/abc_tablatures.js":
+/*!***********************************!*\
+  !*** ./src/api/abc_tablatures.js ***!
+  \***********************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+/*
+ * Tablature Plugins
+ * tablature are defined dynamically and registered inside abcjs
+ * by calling abcTablatures.register(plugin) 
+ * where plugin represents a plugin instance 
+ * 
+ */
+var ViolinTablature = __webpack_require__(/*! ../tablatures/instruments/violin/tab-violin */ "./src/tablatures/instruments/violin/tab-violin.js");
+
+var GuitarTablature = __webpack_require__(/*! ../tablatures/instruments/guitar/tab-guitar */ "./src/tablatures/instruments/guitar/tab-guitar.js");
+/* extend the table below when adding a new instrument plugin */
+// Existing tab classes 
+
+
+var pluginTab = {
+  'violin': 'ViolinTab',
+  'guitar': 'GuitarTab'
+};
+var abcTablatures = {
+  inited: false,
+  plugins: {},
+
+  /**
+   * to be called once per plugin for registration 
+   * @param {*} plugin 
+   */
+  register: function register(plugin) {
+    var name = plugin.name;
+    var tablature = plugin.tablature;
+    this.plugins[name] = tablature;
+  },
+  setError: function setError(tune, msg) {
+    if (tune.warnings) {
+      tune.warning.push(msg);
+    } else {
+      tune.warnings = [msg];
+    }
+  },
+
+  /**
+   * handle params for current processed score
+   * @param {*} tune current tune 
+   * @param {*} tuneNumber number in tune list
+   * @param {*} params params to be processed for tablature
+   * @return prepared tablatures plugin instances for current tune
+   */
+  preparePlugins: function preparePlugins(tune, tuneNumber, params) {
+    var returned = null;
+    var nbPlugins = 0;
+
+    if (params.tablature) {
+      // validate requested plugins 
+      var tabs = params.tablature;
+      returned = [];
+
+      for (var ii = 0; ii < tabs.length; ii++) {
+        var args = tabs[ii];
+        var instrument = args['instrument'];
+
+        if (instrument == null) {
+          this.setError(tune, "tablature 'instrument' is missing");
+          return returned;
+        }
+
+        var tabName = pluginTab[instrument];
+        var plugin = null;
+
+        if (tabName) {
+          plugin = this.plugins[tabName];
+        }
+
+        if (plugin) {
+          if (params.visualTranspose != 0) {
+            // populate transposition request to tabs
+            args.visualTranspose = params.visualTranspose;
+          }
+
+          args.abcSrc = params.tablature.abcSrc;
+          var pluginInstance = {
+            classz: plugin,
+            tuneNumber: tuneNumber,
+            params: args,
+            instance: null
+          }; // proceed with tab plugin  init 
+          // plugin.init(tune, tuneNumber, args, ii);
+
+          returned.push(pluginInstance);
+          nbPlugins++;
+        } else {
+          // unknown tab plugin 
+          //this.emit_error('Undefined tablature plugin: ' + tabName)
+          this.setError(tune, 'Undefined tablature plugin: ' + instrument);
+          return returned;
+        }
+      }
+    }
+
+    return returned;
+  },
+
+  /**
+   * Call requested plugin
+   * @param {*} renderer 
+   * @param {*} abcTune 
+   */
+  layoutTablatures: function layoutTablatures(renderer, abcTune) {
+    var tabs = abcTune.tablatures; // chack tabs request for each staffs
+
+    for (var ii = 0; ii < abcTune.lines.length; ii++) {
+      var line = abcTune.lines[ii];
+      var curStaff = line.staff;
+
+      if (curStaff) {
+        for (var jj = 0; jj < curStaff.length; jj++) {
+          if (tabs[jj]) {
+            // tablature requested for staff
+            var tabPlugin = tabs[jj];
+
+            if (tabPlugin.instance == null) {
+              tabPlugin.instance = new tabPlugin.classz(); // plugin.init(tune, tuneNumber, args, ii);
+              // call initer first
+
+              tabPlugin.instance.init(abcTune, tabPlugin.tuneNumber, tabPlugin.params, jj);
+            } // render next
+
+
+            tabPlugin.instance.render(renderer, line, jj);
+          }
+        }
+      }
+    }
+  },
+
+  /**
+   * called once internally to register internal plugins
+   */
+  init: function init() {
+    // just register plugin hosted by abcjs 
+    if (!this.inited) {
+      this.register(new ViolinTablature());
+      this.register(new GuitarTablature());
+      this.inited = true;
+    }
+  }
+};
+module.exports = abcTablatures;
+
+/***/ }),
+
 /***/ "./src/api/abc_timing_callbacks.js":
 /*!*****************************************!*\
   !*** ./src/api/abc_timing_callbacks.js ***!
@@ -275,6 +422,7 @@ var TimingCallbacks = function TimingCallbacks(target, params) {
     self.currentBeat = 0;
     self.currentEvent = 0;
     self.currentLine = 0;
+    self.currentTime = 0;
     self.isPaused = false;
     self.isRunning = false;
     self.pausedPercent = null;
@@ -302,50 +450,50 @@ var TimingCallbacks = function TimingCallbacks(target, params) {
     }
 
     if (!self.isPaused && self.isRunning) {
-      var currentTime = timestamp - self.startTime;
-      currentTime += 16; // Add a little slop because this function isn't called exactly.
+      self.currentTime = timestamp - self.startTime;
+      self.currentTime += 16; // Add a little slop because this function isn't called exactly.
 
-      while (self.noteTimings.length > self.currentEvent && self.noteTimings[self.currentEvent].milliseconds < currentTime) {
+      while (self.noteTimings.length > self.currentEvent && self.noteTimings[self.currentEvent].milliseconds < self.currentTime) {
         if (self.eventCallback && self.noteTimings[self.currentEvent].type === 'event') {
           var thisStartTime = self.startTime; // the event callback can call seek and change the position from beneath us.
 
           self.eventCallback(self.noteTimings[self.currentEvent]);
 
           if (thisStartTime !== self.startTime) {
-            currentTime = timestamp - self.startTime;
+            self.currentTime = timestamp - self.startTime;
           }
         }
 
         self.currentEvent++;
       }
 
-      if (self.lineEndCallback && self.lineEndTimings.length > self.currentLine && self.lineEndTimings[self.currentLine].milliseconds < currentTime && self.currentEvent < self.noteTimings.length) {
-        var leftEvent = self.noteTimings[self.currentEvent].milliseconds === currentTime ? self.noteTimings[self.currentEvent] : self.noteTimings[self.currentEvent - 1];
+      if (self.lineEndCallback && self.lineEndTimings.length > self.currentLine && self.lineEndTimings[self.currentLine].milliseconds < self.currentTime && self.currentEvent < self.noteTimings.length) {
+        var leftEvent = self.noteTimings[self.currentEvent].milliseconds === self.currentTime ? self.noteTimings[self.currentEvent] : self.noteTimings[self.currentEvent - 1];
         self.lineEndCallback(self.lineEndTimings[self.currentLine], leftEvent, {
           line: self.currentLine,
           endTimings: self.lineEndTimings,
-          currentTime: currentTime
+          currentTime: self.currentTime
         });
         self.currentLine++;
       }
 
-      if (currentTime < self.lastMoment) {
+      if (self.currentTime < self.lastMoment) {
         requestAnimationFrame(self.doTiming);
 
-        if (self.currentBeat * self.millisecondsPerBeat < currentTime) {
+        if (self.currentBeat * self.millisecondsPerBeat < self.currentTime) {
           var ret = self.doBeatCallback(timestamp);
-          if (ret !== null) currentTime = ret;
+          if (ret !== null) self.currentTime = ret;
         }
       } else if (self.currentBeat <= self.totalBeats) {
         // Because of timing issues (for instance, if the browser tab isn't active), the beat callbacks might not have happened when they are supposed to. To keep the client programs from having to deal with that, this will keep calling the loop until all of them have been sent.
         if (self.beatCallback) {
           var ret2 = self.doBeatCallback(timestamp);
-          if (ret2 !== null) currentTime = ret2;
+          if (ret2 !== null) self.currentTime = ret2;
           requestAnimationFrame(self.doTiming);
         }
       }
 
-      if (currentTime >= self.lastMoment) {
+      if (self.currentTime >= self.lastMoment) {
         if (self.eventCallback) {
           // At the end, the event callback can return "continue" to keep from stopping.
           // The event callback can either be a promise or not.
@@ -464,7 +612,7 @@ var TimingCallbacks = function TimingCallbacks(target, params) {
     }
   };
 
-  self.start = function (offsetPercent) {
+  self.start = function (offsetPercent, units) {
     self.isRunning = true;
 
     if (self.isPaused) {
@@ -473,13 +621,13 @@ var TimingCallbacks = function TimingCallbacks(target, params) {
     }
 
     if (offsetPercent) {
-      self.setProgress(offsetPercent);
+      self.setProgress(offsetPercent, units);
     } else if (offsetPercent === 0) {
       self.reset();
     } else if (self.pausedPercent !== null) {
       var now = performance.now();
-      var currentTime = self.lastMoment * self.pausedPercent;
-      self.startTime = now - currentTime;
+      self.currentTime = self.lastMoment * self.pausedPercent;
+      self.startTime = now - self.currentTime;
       self.pausedPercent = null;
       self.reportNext = true;
     }
@@ -500,6 +648,10 @@ var TimingCallbacks = function TimingCallbacks(target, params) {
     }
   };
 
+  self.currentMillisecond = function () {
+    return self.currentTime;
+  };
+
   self.reset = function () {
     self.currentBeat = 0;
     self.currentEvent = 0;
@@ -515,22 +667,21 @@ var TimingCallbacks = function TimingCallbacks(target, params) {
 
   self.setProgress = function (position, units) {
     // the effect of this function is to move startTime so that the callbacks happen correctly for the new seek.
-    var currentTime;
     var percent;
 
     switch (units) {
       case "seconds":
-        currentTime = position * 1000;
-        if (currentTime < 0) currentTime = 0;
-        if (currentTime > self.lastMoment) currentTime = self.lastMoment;
-        percent = currentTime / self.lastMoment;
+        self.currentTime = position * 1000;
+        if (self.currentTime < 0) self.currentTime = 0;
+        if (self.currentTime > self.lastMoment) self.currentTime = self.lastMoment;
+        percent = self.currentTime / self.lastMoment;
         break;
 
       case "beats":
-        currentTime = position * self.millisecondsPerBeat * self.beatSubdivisions;
-        if (currentTime < 0) currentTime = 0;
-        if (currentTime > self.lastMoment) currentTime = self.lastMoment;
-        percent = currentTime / self.lastMoment;
+        self.currentTime = position * self.millisecondsPerBeat * self.beatSubdivisions;
+        if (self.currentTime < 0) self.currentTime = 0;
+        if (self.currentTime > self.lastMoment) self.currentTime = self.lastMoment;
+        percent = self.currentTime / self.lastMoment;
         break;
 
       default:
@@ -539,32 +690,32 @@ var TimingCallbacks = function TimingCallbacks(target, params) {
         percent = position;
         if (percent < 0) percent = 0;
         if (percent > 1) percent = 1;
-        currentTime = self.lastMoment * percent;
+        self.currentTime = self.lastMoment * percent;
         break;
     }
 
     if (!self.isRunning) self.pausedPercent = percent;
     var now = performance.now();
-    self.startTime = now - currentTime;
+    self.startTime = now - self.currentTime;
     var oldEvent = self.currentEvent;
     self.currentEvent = 0;
 
-    while (self.noteTimings.length > self.currentEvent && self.noteTimings[self.currentEvent].milliseconds < currentTime) {
+    while (self.noteTimings.length > self.currentEvent && self.noteTimings[self.currentEvent].milliseconds < self.currentTime) {
       self.currentEvent++;
     }
 
     if (self.lineEndCallback) {
       self.currentLine = 0;
 
-      while (self.lineEndTimings.length > self.currentLine && self.lineEndTimings[self.currentLine].milliseconds + self.lineEndAnticipation < currentTime) {
+      while (self.lineEndTimings.length > self.currentLine && self.lineEndTimings[self.currentLine].milliseconds + self.lineEndAnticipation < self.currentTime) {
         self.currentLine++;
       }
     }
 
     var oldBeat = self.currentBeat;
-    self.currentBeat = Math.floor(currentTime / self.millisecondsPerBeat);
+    self.currentBeat = Math.floor(self.currentTime / self.millisecondsPerBeat);
     if (self.beatCallback && oldBeat !== self.currentBeat) // If the movement caused the beat to change, then immediately report it to the client.
-      self.doBeatCallback(self.startTime + currentTime);
+      self.doBeatCallback(self.startTime + self.currentTime);
     if (self.eventCallback && self.currentEvent >= 0 && self.noteTimings[self.currentEvent].type === 'event') self.eventCallback(self.noteTimings[self.currentEvent]);
     if (self.lineEndCallback) self.lineEndCallback(self.lineEndTimings[self.currentLine], self.noteTimings[self.currentEvent], {
       line: self.currentLine,
@@ -607,12 +758,14 @@ module.exports = TimingCallbacks;
   \*********************************/
 /***/ (function(module, __unused_webpack_exports, __webpack_require__) {
 
-function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+function _typeof(obj) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) { return typeof obj; } : function (obj) { return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }, _typeof(obj); }
 
 //    abc_tunebook.js: splits a string representing ABC Music Notation into individual tunes.
 var Parse = __webpack_require__(/*! ../parse/abc_parse */ "./src/parse/abc_parse.js");
 
 var bookParser = __webpack_require__(/*! ../parse/abc_parse_book */ "./src/parse/abc_parse_book.js");
+
+var tablatures = __webpack_require__(/*! ./abc_tablatures */ "./src/api/abc_tablatures.js");
 
 var tunebook = {};
 
@@ -688,7 +841,15 @@ var tunebook = {};
       if (div) {
         if (currentTune >= 0 && currentTune < book.tunes.length) {
           abcParser.parse(book.tunes[currentTune].abc, params, book.tunes[currentTune].startPos - book.header.length);
-          var tune = abcParser.getTune();
+          var tune = abcParser.getTune(); //
+          // Init tablatures plugins
+          //
+
+          if (params.tablature) {
+            tablatures.init();
+            tune.tablatures = tablatures.preparePlugins(tune, currentTune, params);
+          }
+
           var warnings = abcParser.getWarnings();
           if (warnings) tune.warnings = warnings;
           var override = callback(div, tune, i, book.tunes[currentTune].abc);
@@ -886,7 +1047,8 @@ var Parse = __webpack_require__(/*! ../parse/abc_parse */ "./src/parse/abc_parse
 
 var wrap = __webpack_require__(/*! ../parse/wrap_lines */ "./src/parse/wrap_lines.js");
 
-var parseCommon = __webpack_require__(/*! ../parse/abc_common */ "./src/parse/abc_common.js");
+var parseCommon = __webpack_require__(/*! ../parse/abc_common */ "./src/parse/abc_common.js"); // var tablatures = require('./abc_tablatures');
+
 
 var resizeDivs = {};
 
@@ -909,7 +1071,7 @@ try {
 } catch (e) {// if we aren't in a browser, this code will crash, but it is not needed then either.
 }
 
-function renderOne(div, tune, params, tuneNumber) {
+function renderOne(div, tune, params, tuneNumber, lineOffset) {
   if (params.viewportHorizontal) {
     // Create an inner div that holds the music, so that the passed in div will be the viewport.
     div.innerHTML = '<div class="abcjs-inner"></div>';
@@ -931,118 +1093,13 @@ function renderOne(div, tune, params, tuneNumber) {
   } else div.innerHTML = "";
 
   var engraver_controller = new EngraverController(div, params);
-  engraver_controller.engraveABC(tune, tuneNumber);
+  engraver_controller.engraveABC(tune, tuneNumber, lineOffset);
   tune.engraver = engraver_controller;
 
   if (params.viewportVertical || params.viewportHorizontal) {
     // If we added a wrapper around the div, then we need to size the wrapper, too.
     var parent = div.parentNode;
     parent.style.width = div.style.width;
-  }
-}
-
-function renderEachLineSeparately(div, tune, params, tuneNumber) {
-  function initializeTuneLine(tune) {
-    var obj = new Tune();
-    obj.formatting = tune.formatting;
-    obj.media = tune.media;
-    obj.version = tune.version;
-    obj.metaText = {};
-    obj.lines = [];
-    return obj;
-  } // Before rendering, chop up the returned tune into an array where each element is a line.
-  // The first element of the array gets the title and other items that go on top, the last element
-  // of the array gets the extra text that goes on bottom. Each element gets any non-music info that comes before it.
-
-
-  var tunes = [];
-  var tuneLine;
-
-  for (var i = 0; i < tune.lines.length; i++) {
-    var line = tune.lines[i];
-    if (!tuneLine) tuneLine = initializeTuneLine(tune);
-
-    if (i === 0) {
-      // These items go on top of the music
-      tuneLine.metaText.tempo = tune.metaText.tempo;
-      tuneLine.metaText.title = tune.metaText.title;
-      tuneLine.metaText.header = tune.metaText.header;
-      tuneLine.metaText.rhythm = tune.metaText.rhythm;
-      tuneLine.metaText.origin = tune.metaText.origin;
-      tuneLine.metaText.composer = tune.metaText.composer;
-      tuneLine.metaText.author = tune.metaText.author;
-      tuneLine.metaText.partOrder = tune.metaText.partOrder;
-    } // push the lines until we get to a music line
-
-
-    tuneLine.lines.push(line);
-
-    if (line.staff) {
-      tunes.push(tuneLine);
-      tuneLine = undefined;
-    }
-  } // Add any extra stuff to the last line.
-
-
-  if (tuneLine) {
-    var lastLine = tunes[tunes.length - 1];
-
-    for (var j = 0; j < tuneLine.lines.length; j++) {
-      lastLine.lines.push(tuneLine.lines[j]);
-    }
-  } // These items go below the music
-
-
-  tuneLine = tunes[tunes.length - 1];
-  tuneLine.metaText.unalignedWords = tune.metaText.unalignedWords;
-  tuneLine.metaText.book = tune.metaText.book;
-  tuneLine.metaText.source = tune.metaText.source;
-  tuneLine.metaText.discography = tune.metaText.discography;
-  tuneLine.metaText.notes = tune.metaText.notes;
-  tuneLine.metaText.transcription = tune.metaText.transcription;
-  tuneLine.metaText.history = tune.metaText.history;
-  tuneLine.metaText['abc-copyright'] = tune.metaText['abc-copyright'];
-  tuneLine.metaText['abc-creator'] = tune.metaText['abc-creator'];
-  tuneLine.metaText['abc-edited-by'] = tune.metaText['abc-edited-by'];
-  tuneLine.metaText.footer = tune.metaText.footer; // Now create sub-divs and render each line. Need to copy the params to change the padding for the interior slices.
-
-  var ep = {};
-
-  for (var key in params) {
-    if (params.hasOwnProperty(key)) {
-      ep[key] = params[key];
-    }
-  }
-
-  var origPaddingTop = ep.paddingtop;
-  var origPaddingBottom = ep.paddingbottom;
-  div.innerHTML = "";
-
-  for (var k = 0; k < tunes.length; k++) {
-    var lineEl = document.createElement("div");
-    div.appendChild(lineEl);
-
-    if (k === 0) {
-      ep.paddingtop = origPaddingTop;
-      ep.paddingbottom = -20;
-    } else if (k === tunes.length - 1) {
-      ep.paddingtop = 10;
-      ep.paddingbottom = origPaddingBottom;
-    } else {
-      ep.paddingtop = 10;
-      ep.paddingbottom = -20;
-    }
-
-    if (k < tunes.length - 1) {
-      // If it is not the last line, force stretchlast. If it is, stretchlast might have been set by the input parameters.
-      tunes[k].formatting = parseCommon.clone(tunes[k].formatting);
-      tunes[k].formatting.stretchlast = true;
-    }
-
-    renderOne(lineEl, tunes[k], ep, tuneNumber);
-    if (k === 0) tune.engraver = tunes[k].engraver;else {
-      if (!tune.engraver.staffgroups) tune.engraver.staffgroups = tunes[k].engraver.staffgroups;else if (tunes[k].engraver.staffgroups.length > 0) tune.engraver.staffgroups.push(tunes[k].engraver.staffgroups[0]);
-    }
   }
 } // A quick way to render a tune from javascript when interactivity is not required.
 // This is used when a javascript routine has some abc text that it wants to render
@@ -1073,6 +1130,10 @@ var renderAbc = function renderAbc(output, abc, parserParams, engraverParams, re
       if (parserParams.hasOwnProperty(key)) {
         params[key] = parserParams[key];
       }
+    }
+
+    if (params.warnings_id && params.tablature) {
+      params.tablature.warning_id = params.warnings_id;
     }
   }
 
@@ -1110,8 +1171,9 @@ var renderAbc = function renderAbc(output, abc, parserParams, engraverParams, re
     if (!removeDiv && params.wrap && params.staffwidth) {
       tune = doLineWrapping(div, tune, tuneNumber, abcString, params);
       return tune;
-    } else if (removeDiv || !params.oneSvgPerLine || tune.lines.length < 2) renderOne(div, tune, params, tuneNumber);else renderEachLineSeparately(div, tune, params, tuneNumber);
+    }
 
+    renderOne(div, tune, params, tuneNumber, 0);
     if (removeDiv) div.parentNode.removeChild(div);
     return null;
   }
@@ -1128,14 +1190,272 @@ function doLineWrapping(div, tune, tuneNumber, abcString, params) {
     var abcParser = new Parse();
     abcParser.parse(abcString, ret.revisedParams);
     tune = abcParser.getTune();
+    var warnings = abcParser.getWarnings();
+    if (warnings) tune.warnings = warnings;
   }
 
-  if (!params.oneSvgPerLine || tune.lines.length < 2) renderOne(div, tune, ret.revisedParams, tuneNumber);else renderEachLineSeparately(div, tune, ret.revisedParams, tuneNumber);
+  renderOne(div, tune, ret.revisedParams, tuneNumber, 0);
   tune.explanation = ret.explanation;
   return tune;
 }
 
 module.exports = renderAbc;
+
+/***/ }),
+
+/***/ "./src/const/key-accidentals.js":
+/*!**************************************!*\
+  !*** ./src/const/key-accidentals.js ***!
+  \**************************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+var _require = __webpack_require__(/*! ./relative-major */ "./src/const/relative-major.js"),
+    relativeMajor = _require.relativeMajor;
+
+var key1sharp = {
+  acc: 'sharp',
+  note: 'f'
+};
+var key2sharp = {
+  acc: 'sharp',
+  note: 'c'
+};
+var key3sharp = {
+  acc: 'sharp',
+  note: 'g'
+};
+var key4sharp = {
+  acc: 'sharp',
+  note: 'd'
+};
+var key5sharp = {
+  acc: 'sharp',
+  note: 'A'
+};
+var key6sharp = {
+  acc: 'sharp',
+  note: 'e'
+};
+var key7sharp = {
+  acc: 'sharp',
+  note: 'B'
+};
+var key1flat = {
+  acc: 'flat',
+  note: 'B'
+};
+var key2flat = {
+  acc: 'flat',
+  note: 'e'
+};
+var key3flat = {
+  acc: 'flat',
+  note: 'A'
+};
+var key4flat = {
+  acc: 'flat',
+  note: 'd'
+};
+var key5flat = {
+  acc: 'flat',
+  note: 'G'
+};
+var key6flat = {
+  acc: 'flat',
+  note: 'c'
+};
+var key7flat = {
+  acc: 'flat',
+  note: 'F'
+};
+var keys = {
+  'C#': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
+  'F#': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp],
+  'B': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp],
+  'E': [key1sharp, key2sharp, key3sharp, key4sharp],
+  'A': [key1sharp, key2sharp, key3sharp],
+  'D': [key1sharp, key2sharp],
+  'G': [key1sharp],
+  'C': [],
+  'F': [key1flat],
+  'Bb': [key1flat, key2flat],
+  'Eb': [key1flat, key2flat, key3flat],
+  'Cm': [key1flat, key2flat, key3flat],
+  'Ab': [key1flat, key2flat, key3flat, key4flat],
+  'Db': [key1flat, key2flat, key3flat, key4flat, key5flat],
+  'Gb': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat],
+  'Cb': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat, key7flat],
+  // The following are not in the 2.0 spec, but seem normal enough.
+  // TODO-PER: These SOUND the same as what's written, but they aren't right
+  'A#': [key1flat, key2flat],
+  'B#': [],
+  'D#': [key1flat, key2flat, key3flat],
+  'E#': [key1flat],
+  'G#': [key1flat, key2flat, key3flat, key4flat],
+  'none': []
+};
+
+function keyAccidentals(key) {
+  var newKey = keys[relativeMajor(key)];
+  if (!newKey) // If we don't recognize the key then there is no change
+    return null;
+  return JSON.parse(JSON.stringify(newKey));
+}
+
+;
+module.exports = keyAccidentals;
+
+/***/ }),
+
+/***/ "./src/const/relative-major.js":
+/*!*************************************!*\
+  !*** ./src/const/relative-major.js ***!
+  \*************************************/
+/***/ (function(module) {
+
+// All these keys have the same number of accidentals
+var keys = {
+  'C': {
+    modes: ['CMaj', 'Amin', 'Am', 'GMix', 'DDor', 'EPhr', 'FLyd', 'BLoc'],
+    stepsFromC: 0
+  },
+  'Db': {
+    modes: ['DbMaj', 'Bbmin', 'Bbm', 'AbMix', 'EbDor', 'FPhr', 'GbLyd', 'CLoc'],
+    stepsFromC: 1
+  },
+  'D': {
+    modes: ['DMaj', 'Bmin', 'Bm', 'AMix', 'EDor', 'F#Phr', 'GLyd', 'C#Loc'],
+    stepsFromC: 2
+  },
+  'Eb': {
+    modes: ['EbMaj', 'Cmin', 'Cm', 'BbMix', 'FDor', 'GPhr', 'AbLyd', 'DLoc'],
+    stepsFromC: 3
+  },
+  'E': {
+    modes: ['EMaj', 'C#min', 'C#m', 'BMix', 'F#Dor', 'G#Phr', 'ALyd', 'D#Loc'],
+    stepsFromC: 4
+  },
+  'F': {
+    modes: ['FMaj', 'Dmin', 'Dm', 'CMix', 'GDor', 'APhr', 'BbLyd', 'ELoc'],
+    stepsFromC: 5
+  },
+  'Gb': {
+    modes: ['GbMaj', 'Ebmin', 'Ebm', 'DbMix', 'AbDor', 'BbPhr', 'CbLyd', 'FLoc'],
+    stepsFromC: 6
+  },
+  'G': {
+    modes: ['GMaj', 'Emin', 'Em', 'DMix', 'ADor', 'BPhr', 'CLyd', 'F#Loc'],
+    stepsFromC: 7
+  },
+  'Ab': {
+    modes: ['AbMaj', 'Fmin', 'Fm', 'EbMix', 'BbDor', 'CPhr', 'DbLyd', 'GLoc'],
+    stepsFromC: 8
+  },
+  'A': {
+    modes: ['AMaj', 'F#min', 'F#m', 'EMix', 'BDor', 'C#Phr', 'DLyd', 'G#Loc'],
+    stepsFromC: 9
+  },
+  'Bb': {
+    modes: ['BbMaj', 'Gmin', 'Gm', 'FMix', 'CDor', 'DPhr', 'EbLyd', 'ALoc'],
+    stepsFromC: 10
+  },
+  'B': {
+    modes: ['BMaj', 'G#min', 'G#m', 'F#Mix', 'C#Dor', 'D#Phr', 'ELyd', 'A#Loc'],
+    stepsFromC: 11
+  },
+  // Enharmonic keys
+  'C#': {
+    modes: ['C#Maj', 'A#min', 'A#m', 'G#Mix', 'D#Dor', 'E#Phr', 'F#Lyd', 'B#Loc'],
+    stepsFromC: 1
+  },
+  'F#': {
+    modes: ['F#Maj', 'D#min', 'D#m', 'C#Mix', 'G#Dor', 'A#Phr', 'BLyd', 'E#Loc'],
+    stepsFromC: 6
+  },
+  'Cb': {
+    modes: ['CbMaj', 'Abmin', 'Abm', 'GbMix', 'DbDor', 'EbPhr', 'FbLyd', 'BbLoc'],
+    stepsFromC: 11
+  }
+};
+var keyReverse = null;
+
+function createKeyReverse() {
+  keyReverse = {};
+  var allKeys = Object.keys(keys);
+
+  for (var i = 0; i < allKeys.length; i++) {
+    var keyObj = keys[allKeys[i]];
+    keyReverse[allKeys[i].toLowerCase()] = allKeys[i];
+
+    for (var j = 0; j < keyObj.modes.length; j++) {
+      var mode = keyObj.modes[j].toLowerCase();
+      keyReverse[mode] = allKeys[i];
+    }
+  }
+}
+
+function relativeMajor(key) {
+  // Translate a key to its relative major. If it doesn't exist, do the best we can
+  // by just returning the original key.
+  // There are alternate spellings of these - so the search needs to be case insensitive.
+  // To make this efficient, the first time this is called the "keys" object is reversed so this search is fast in the future
+  if (!keyReverse) {
+    createKeyReverse();
+  } // get the key portion itself - there might be other stuff, like extra sharps and flats, or the mode written out.
+
+
+  var mode = key.toLowerCase().match(/([a-g][b#]?)(maj|min|mix|dor|phr|lyd|loc|m)?/);
+  if (!mode || !mode[2]) return key;
+  mode = mode[1] + mode[2];
+  var maj = keyReverse[mode];
+  if (maj) return maj;
+  return key;
+}
+
+function relativeMode(majorKey, mode) {
+  // The reverse of the relativeMajor. Translate it back to the original mode.
+  // If it isn't a recognized mode or it is already major, then just return the major key.
+  var group = keys[majorKey];
+  if (!group) return majorKey;
+  if (mode === '') return majorKey;
+  var match = mode.toLowerCase().match(/^(maj|min|mix|dor|phr|lyd|loc|m)/);
+  if (!match) return majorKey;
+  var regMode = match[1];
+
+  for (var i = 0; i < group.modes.length; i++) {
+    var thisMode = group.modes[i];
+    var ind = thisMode.toLowerCase().indexOf(regMode);
+    if (ind !== -1 && ind === thisMode.length - regMode.length) return thisMode.substring(0, thisMode.length - regMode.length);
+  }
+
+  return majorKey;
+}
+
+function transposeKey(key, steps) {
+  // This takes a major key and adds the desired steps.
+  // It assigns each key a number that is the number of steps from C so that there can just be arithmetic.
+  var match = keys[key];
+  if (!match) return key;
+
+  while (steps < 0) {
+    steps += 12;
+  }
+
+  var fromC = (match.stepsFromC + steps) % 12;
+
+  for (var i = 0; i < Object.keys(keys).length; i++) {
+    var k = Object.keys(keys)[i];
+    if (keys[k].stepsFromC === fromC) return k;
+  }
+
+  return key;
+}
+
+module.exports = {
+  relativeMajor: relativeMajor,
+  relativeMode: relativeMode,
+  transposeKey: transposeKey
+};
 
 /***/ }),
 
@@ -1163,7 +1483,39 @@ var delineTune = __webpack_require__(/*! ./deline-tune */ "./src/data/deline-tun
 
 
 var Tune = function Tune() {
-  // The structure consists of a hash with the following two items:
+  this.reset = function () {
+    this.version = "1.1.0";
+    this.media = "screen";
+    this.metaText = {};
+    this.metaTextInfo = {};
+    this.formatting = {};
+    this.lines = [];
+    this.staffNum = 0;
+    this.voiceNum = 0;
+    this.lineNum = 0;
+    this.runningFonts = {};
+    delete this.visualTranspose;
+  };
+
+  this.reset();
+
+  function copy(dest, src, prop, attrs) {
+    for (var i = 0; i < attrs.length; i++) {
+      dest[prop][attrs[i]] = src[prop][attrs[i]];
+    }
+  }
+
+  this.copyTopInfo = function (src) {
+    var attrs = ['tempo', 'title', 'header', 'rhythm', 'origin', 'composer', 'author', 'partOrder'];
+    copy(this, src, "metaText", attrs);
+    copy(this, src, "metaTextInfo", attrs);
+  };
+
+  this.copyBottomInfo = function (src) {
+    var attrs = ['unalignedWords', 'book', 'source', 'discography', 'notes', 'transcription', 'history', 'abc-copyright', 'abc-creator', 'abc-edited-by', 'footer'];
+    copy(this, src, "metaText", attrs);
+    copy(this, src, "metaTextInfo", attrs);
+  }; // The structure consists of a hash with the following two items:
   // metaText: a hash of {key, value}, where key is one of: title, author, rhythm, source, transcription, unalignedWords, etc...
   // tempo: { noteLength: number (e.g. .125), bpm: number }
   // lines: an array of elements, or one of the following:
@@ -1195,6 +1547,8 @@ var Tune = function Tune() {
   //		accidentals[]: { acc:sharp|dblsharp|natural|flat|dblflat,  note:a|b|c|d|e|f|g }
   // METER: type: common_time,cut_time,specified
   //		if specified, { num: 99, den: 99 }
+
+
   this.getBeatLength = function () {
     // This returns a fraction: for instance 1/4 for a quarter
     // There are two types of meters: compound and regular. Compound meter has 3 beats counted as one.
@@ -1513,33 +1867,36 @@ var Tune = function Tune() {
 
     for (var line = 0; line < this.engraver.staffgroups.length; line++) {
       var group = this.engraver.staffgroups[line];
-      var firstStaff = group.staffs[0];
-      var middleC = firstStaff.absoluteY;
-      var top = middleC - firstStaff.top * spacing.STEP;
-      var lastStaff = group.staffs[group.staffs.length - 1];
-      middleC = lastStaff.absoluteY;
-      var bottom = middleC - lastStaff.bottom * spacing.STEP;
-      var height = bottom - top;
-      var voices = group.voices;
 
-      for (var v = 0; v < voices.length; v++) {
-        var noteFound = false;
-        if (!voicesArr[v]) voicesArr[v] = [];
-        if (measureNumber[v] === undefined) measureNumber[v] = 0;
-        var elements = voices[v].children;
+      if (group && group.staffs && group.staffs.length > 0) {
+        var firstStaff = group.staffs[0];
+        var middleC = firstStaff.absoluteY;
+        var top = middleC - firstStaff.top * spacing.STEP;
+        var lastStaff = group.staffs[group.staffs.length - 1];
+        middleC = lastStaff.absoluteY;
+        var bottom = middleC - lastStaff.bottom * spacing.STEP;
+        var height = bottom - top;
+        var voices = group.voices;
 
-        for (var elem = 0; elem < elements.length; elem++) {
-          if (elements[elem].type === "tempo") tempos[measureNumber[v]] = this.getBpm(elements[elem].abcelem);
-          voicesArr[v].push({
-            top: top,
-            height: height,
-            line: group.line,
-            measureNumber: measureNumber[v],
-            elem: elements[elem]
-          });
-          if (elements[elem].type === 'bar' && noteFound) // Count the measures by counting the bar lines, but skip a bar line that appears at the left of the music, before any notes.
-            measureNumber[v]++;
-          if (elements[elem].type === 'note' || elements[elem].type === 'rest') noteFound = true;
+        for (var v = 0; v < voices.length; v++) {
+          var noteFound = false;
+          if (!voicesArr[v]) voicesArr[v] = [];
+          if (measureNumber[v] === undefined) measureNumber[v] = 0;
+          var elements = voices[v].children;
+
+          for (var elem = 0; elem < elements.length; elem++) {
+            if (elements[elem].type === "tempo") tempos[measureNumber[v]] = this.getBpm(elements[elem].abcelem);
+            voicesArr[v].push({
+              top: top,
+              height: height,
+              line: group.line,
+              measureNumber: measureNumber[v],
+              elem: elements[elem]
+            });
+            if (elements[elem].type === 'bar' && noteFound) // Count the measures by counting the bar lines, but skip a bar line that appears at the left of the music, before any notes.
+              measureNumber[v]++;
+            if (elements[elem].type === 'note' || elements[elem].type === 'rest') noteFound = true;
+          }
         }
       }
     }
@@ -2221,6 +2578,19 @@ function gatherAbcParams(params) {
       }
     }
   }
+  /*
+  if (params.tablature_options) {
+  	abcjsParams['tablatures'] = params.tablature_options;
+  }
+  */
+
+
+  if (abcjsParams.tablature) {
+    if (params.warnings_id) {
+      // store for plugin error handling
+      abcjsParams.tablature.warnings_id = params.warnings_id;
+    }
+  }
 
   return abcjsParams;
 }
@@ -2357,15 +2727,22 @@ Editor.prototype.modelChanged = function () {
   if (this.bReentry) return; // TODO is this likely? maybe, if we rewrite abc immediately w/ abc2abc
 
   this.bReentry = true;
-  this.timerId = null;
-  if (this.synth && this.synth.synthControl) this.synth.synthControl.disable(true);
-  this.tunes = renderAbc(this.div, this.currentAbc, this.abcjsParams);
 
-  if (this.tunes.length > 0) {
-    this.warnings = this.tunes[0].warnings;
+  try {
+    this.timerId = null;
+    if (this.synth && this.synth.synthControl) this.synth.synthControl.disable(true);
+    this.tunes = renderAbc(this.div, this.currentAbc, this.abcjsParams);
+
+    if (this.tunes.length > 0) {
+      this.warnings = this.tunes[0].warnings;
+    }
+
+    this.redrawMidi();
+  } catch (error) {
+    console.error("ABCJS error: ", error);
+    if (!this.warnings) this.warnings = [];
+    this.warnings.push(error.message);
   }
-
-  this.redrawMidi();
 
   if (this.warningsdiv) {
     this.warningsdiv.innerHTML = this.warnings ? this.warnings.join("<br />") : "No errors";
@@ -2390,6 +2767,7 @@ Editor.prototype.paramChanged = function (engraverParams) {
 };
 
 Editor.prototype.synthParamChanged = function (options) {
+  if (!this.synth) return;
   this.synth.options = {};
 
   if (options) {
@@ -2509,6 +2887,7 @@ Editor.prototype.pause = function (shouldPause) {
 };
 
 Editor.prototype.millisecondsPerMeasure = function () {
+  if (!this.synth || !this.synth.synthControl || !this.synth.synthControl.visualObj) return 0;
   return this.synth.synthControl.visualObj.millisecondsPerMeasure();
 };
 
@@ -2545,6 +2924,8 @@ var create;
     if (title && title.length > 128) title = title.substring(0, 124) + '...';
     var key = abcTune.getKeySignature();
     var time = abcTune.getMeterFraction();
+    var beatsPerSecond = commands.tempo / 60; //var beatLength = abcTune.getBeatLength();
+
     midi.setGlobalInfo(commands.tempo, title, key, time);
 
     for (var i = 0; i < commands.tracks.length; i++) {
@@ -2567,9 +2948,11 @@ var create;
             break;
 
           case 'note':
-            var start = event.start;
-            var end = start + event.duration; // TODO: end is affected by event.gap, too.
+            var gapLengthInBeats = event.gap * beatsPerSecond;
+            var start = event.start; // The staccato and legato are indicated by event.gap.
+            // event.gap is in seconds but the durations are in whole notes.
 
+            var end = start + event.duration - gapLengthInBeats;
             if (!notePlacement[start]) notePlacement[start] = [];
             notePlacement[start].push({
               pitch: event.pitch,
@@ -2792,6 +3175,7 @@ var Parse = function Parse() {
       lines: tune.lines,
       media: tune.media,
       metaText: tune.metaText,
+      metaTextInfo: tune.metaTextInfo,
       version: tune.version,
       addElementToEvents: tune.addElementToEvents,
       addUsefulCallbackInfo: tune.addUsefulCallbackInfo,
@@ -2916,8 +3300,11 @@ var Parse = function Parse() {
       for (var i = 0; i < this.inTie.length; i++) {
         this.endingHoldOver.inTie.push([]);
 
-        for (var j = 0; j < this.inTie[i].length; j++) {
-          this.endingHoldOver.inTie[i].push(this.inTie[i][j]);
+        if (this.inTie[i]) {
+          // if a voice is suppressed there might be a gap in the array.
+          for (var j = 0; j < this.inTie[i].length; j++) {
+            this.endingHoldOver.inTie[i].push(this.inTie[i][j]);
+          }
         }
       }
 
@@ -2965,7 +3352,7 @@ var Parse = function Parse() {
     if (!line) line = " ";
     var bad_char = line.charAt(col_num);
     if (bad_char === ' ') bad_char = "SPACE";
-    var clean_line = encode(line.substring(0, col_num)) + '<span style="text-decoration:underline;font-size:1.3em;font-weight:bold;">' + bad_char + '</span>' + encode(line.substring(col_num + 1));
+    var clean_line = encode(line.substring(col_num - 64, col_num)) + '<span style="text-decoration:underline;font-size:1.3em;font-weight:bold;">' + bad_char + '</span>' + encode(line.substring(col_num + 1).substring(0, 64));
     addWarning("Music Line:" + tokenizer.lineIndex + ":" + (col_num + 1) + ': ' + str + ":  " + clean_line);
     addWarningObject({
       message: str,
@@ -3010,6 +3397,7 @@ var Parse = function Parse() {
 
     var addWord = function addWord(i) {
       var word = parseCommon.strip(words.substring(last_divider, i));
+      word = word.replace(/\\([-_*|~])/g, '$1');
       last_divider = i + 1;
 
       if (word.length > 0) {
@@ -3027,15 +3415,17 @@ var Parse = function Parse() {
       return false;
     };
 
+    var escNext = false;
+
     for (var i = 0; i < words.length; i++) {
-      switch (words.charAt(i)) {
+      switch (words[i]) {
         case ' ':
         case '\x12':
           addWord(i);
           break;
 
         case '-':
-          if (!addWord(i) && word_list.length > 0) {
+          if (!escNext && !addWord(i) && word_list.length > 0) {
             parseCommon.last(word_list).divider = '-';
             word_list.push({
               skip: true,
@@ -3046,33 +3436,47 @@ var Parse = function Parse() {
           break;
 
         case '_':
-          addWord(i);
-          word_list.push({
-            skip: true,
-            to: 'slur'
-          });
+          if (!escNext) {
+            addWord(i);
+            word_list.push({
+              skip: true,
+              to: 'slur'
+            });
+          }
+
           break;
 
         case '*':
-          addWord(i);
-          word_list.push({
-            skip: true,
-            to: 'next'
-          });
+          if (!escNext) {
+            addWord(i);
+            word_list.push({
+              skip: true,
+              to: 'next'
+            });
+          }
+
           break;
 
         case '|':
-          addWord(i);
-          word_list.push({
-            skip: true,
-            to: 'bar'
-          });
+          if (!escNext) {
+            addWord(i);
+            word_list.push({
+              skip: true,
+              to: 'bar'
+            });
+          }
+
           break;
 
         case '~':
-          replace = true;
+          if (!escNext) {
+            replace = true;
+          }
+
           break;
       }
+
+      escNext = words[i] === '\\';
     }
 
     var inSlur = false;
@@ -3325,7 +3729,7 @@ var Parse = function Parse() {
     // switches.transpose: change the key signature, chords, and notes by a number of half-steps.
     if (!switches) switches = {};
     if (!startPos) startPos = 0;
-    tuneBuilder.reset(); // Take care of whatever line endings come our way
+    tune.reset(); // Take care of whatever line endings come our way
     // Tack on newline temporarily to make the last line continuation work
 
     strTune = strTune.replace(/\r\n?/g, '\n') + '\n'; // get rid of latex commands. If a line starts with a backslash, then it is replaced by spaces to keep the character count the same.
@@ -3435,7 +3839,7 @@ var Parse = function Parse() {
       addHintMeasures();
     }
 
-    wrap.wrapLines(tune, multilineVars.lineBreaks);
+    wrap.wrapLines(tune, multilineVars.lineBreaks, multilineVars.barNumbers);
   };
 };
 
@@ -3456,15 +3860,16 @@ var bookParser = function bookParser(book) {
   "use strict";
 
   var directives = "";
+  var initialWhiteSpace = book.match(/(\s*)/);
   book = parseCommon.strip(book);
   var tuneStrings = book.split("\nX:"); // Put back the X: that we lost when splitting the tunes.
 
   for (var i = 1; i < tuneStrings.length; i++) {
     tuneStrings[i] = "X:" + tuneStrings[i];
-  } // Keep track of the character position each tune starts with.
+  } // Keep track of the character position each tune starts with. If the string starts with white space, count that, too.
 
 
-  var pos = 0;
+  var pos = initialWhiteSpace ? initialWhiteSpace[0].length : 0;
   var tunes = [];
   parseCommon.each(tuneStrings, function (tune) {
     tunes.push({
@@ -3669,6 +4074,27 @@ var parseDirective = {};
       face: "\"Times New Roman\"",
       size: 13,
       weight: "bold",
+      style: "normal",
+      decoration: "none"
+    };
+    tune.formatting.tablabelfont = {
+      face: "\"Trebuchet MS\"",
+      size: 16,
+      weight: "normal",
+      style: "normal",
+      decoration: "none"
+    };
+    tune.formatting.tabnumberfont = {
+      face: "\"Arial\"",
+      size: 11,
+      weight: "normal",
+      style: "normal",
+      decoration: "none"
+    };
+    tune.formatting.tabgracefont = {
+      face: "\"Arial\"",
+      size: 8,
+      weight: "normal",
       style: "normal",
       decoration: "none"
     }; // these are the default fonts for these element types. In the printer, these fonts might change as the tune progresses.
@@ -4467,6 +4893,10 @@ var parseDirective = {};
         tune.formatting.flatbeams = true;
         break;
 
+      case "jazzchords":
+        tune.formatting.jazzchords = true;
+        break;
+
       case "landscape":
         multilineVars.landscape = true;
         break;
@@ -4559,19 +4989,25 @@ var parseDirective = {};
         break;
 
       case "sep":
-        if (tokens.length === 0) tuneBuilder.addSeparator(14, 14, 85); // If no parameters are given, then there is a default size.
+        if (tokens.length === 0) tuneBuilder.addSeparator(14, 14, 85, {
+          startChar: multilineVars.iChar,
+          endChar: multilineVars.iChar + 5
+        }); // If no parameters are given, then there is a default size.
         else {
-            var points = tokenizer.getMeasurement(tokens);
-            if (points.used === 0) return "Directive \"" + cmd + "\" requires 3 numbers: space above, space below, length of line";
-            var spaceAbove = points.value;
-            points = tokenizer.getMeasurement(tokens);
-            if (points.used === 0) return "Directive \"" + cmd + "\" requires 3 numbers: space above, space below, length of line";
-            var spaceBelow = points.value;
-            points = tokenizer.getMeasurement(tokens);
-            if (points.used === 0 || tokens.length !== 0) return "Directive \"" + cmd + "\" requires 3 numbers: space above, space below, length of line";
-            var lenLine = points.value;
-            tuneBuilder.addSeparator(spaceAbove, spaceBelow, lenLine);
-          }
+          var points = tokenizer.getMeasurement(tokens);
+          if (points.used === 0) return "Directive \"" + cmd + "\" requires 3 numbers: space above, space below, length of line";
+          var spaceAbove = points.value;
+          points = tokenizer.getMeasurement(tokens);
+          if (points.used === 0) return "Directive \"" + cmd + "\" requires 3 numbers: space above, space below, length of line";
+          var spaceBelow = points.value;
+          points = tokenizer.getMeasurement(tokens);
+          if (points.used === 0 || tokens.length !== 0) return "Directive \"" + cmd + "\" requires 3 numbers: space above, space below, length of line";
+          var lenLine = points.value;
+          tuneBuilder.addSeparator(spaceAbove, spaceBelow, lenLine, {
+            startChar: multilineVars.iChar,
+            endChar: multilineVars.iChar + restOfString.length
+          });
+        }
         break;
 
       case "barsperstaff":
@@ -4624,7 +5060,10 @@ var parseDirective = {};
           line = tokenizer.nextLine();
         }
 
-        tuneBuilder.addText(textBlock);
+        tuneBuilder.addText(textBlock, {
+          startChar: multilineVars.iChar,
+          endChar: multilineVars.iChar + textBlock.length + 7
+        });
         break;
 
       case "continueall":
@@ -4648,7 +5087,10 @@ var parseDirective = {};
 
       case "text":
         var textstr = tokenizer.translateString(restOfString);
-        tuneBuilder.addText(parseDirective.parseFontChangeLine(textstr));
+        tuneBuilder.addText(parseDirective.parseFontChangeLine(textstr), {
+          startChar: multilineVars.iChar,
+          endChar: multilineVars.iChar + restOfString.length + 7
+        });
         break;
 
       case "center":
@@ -4850,7 +5292,10 @@ var parseDirective = {};
           case "-version":
           case "-charset":
             var subCmd = arr.shift();
-            tuneBuilder.addMetaText(cmd + subCmd, arr.join(' '));
+            tuneBuilder.addMetaText(cmd + subCmd, arr.join(' '), {
+              startChar: multilineVars.iChar,
+              endChar: multilineVars.iChar + restOfString.length + 5
+            });
             break;
 
           default:
@@ -4880,7 +5325,10 @@ var parseDirective = {};
           right: footerArr[2]
         };
         if (footerArr.length > 3) warn("Too many tabs in " + cmd + ": " + footerArr.length + " found.", restOfString, 0);
-        tuneBuilder.addMetaTextObj(cmd, footer);
+        tuneBuilder.addMetaTextObj(cmd, footer, {
+          startChar: multilineVars.iChar,
+          endChar: multilineVars.iChar + str.length
+        });
         break;
 
       case "midi":
@@ -4939,6 +5387,9 @@ var parseDirective = {};
           case "vocalfont":
           case "wordsfont":
           case "annotationfont":
+          case "tablabelfont":
+          case "tabnumberfont":
+          case "tabgracefont":
             getChangingFont(cmd, tokens, value);
             break;
 
@@ -4980,20 +5431,20 @@ var parseDirective = {};
       value: 1
     }; // if there is no value then the presence of this is the same as "true"
     else if (tokens.length === 1) {
-        if (tokens[0].type === "number") {
-          if (tokens[0].floatt >= 0 || tokens[0].floatt <= 1) return {
-            value: tokens[0].floatt
-          };
-        } else if (tokens[0].token === 'false') {
-          return {
-            value: 0
-          };
-        } else if (tokens[0].token === 'true') {
-          return {
-            value: 1
-          };
-        }
+      if (tokens[0].type === "number") {
+        if (tokens[0].floatt >= 0 || tokens[0].floatt <= 1) return {
+          value: tokens[0].floatt
+        };
+      } else if (tokens[0].token === 'false') {
+        return {
+          value: 0
+        };
+      } else if (tokens[0].token === 'true') {
+        return {
+          value: 1
+        };
       }
+    }
     return {
       error: "Directive stretchlast requires zero or one parameter: false, true, or number between 0 and 1 (received " + tokens[0].token + ')'
     };
@@ -5026,13 +5477,19 @@ var ParseHeader = function ParseHeader(tokenizer, warn, multilineVars, tune, tun
   this.reset(tokenizer, warn, multilineVars, tune);
 
   this.setTitle = function (title) {
-    if (multilineVars.hasMainTitle) tuneBuilder.addSubtitle(tokenizer.translateString(tokenizer.stripComment(title))); // display secondary title
+    if (multilineVars.hasMainTitle) tuneBuilder.addSubtitle(tokenizer.translateString(tokenizer.stripComment(title)), {
+      startChar: multilineVars.iChar,
+      endChar: multilineVars.iChar + title.length + 2
+    }); // display secondary title
     else {
-        var titleStr = tokenizer.translateString(tokenizer.theReverser(tokenizer.stripComment(title)));
-        if (multilineVars.titlecaps) titleStr = titleStr.toUpperCase();
-        tuneBuilder.addMetaText("title", titleStr);
-        multilineVars.hasMainTitle = true;
-      }
+      var titleStr = tokenizer.translateString(tokenizer.theReverser(tokenizer.stripComment(title)));
+      if (multilineVars.titlecaps) titleStr = titleStr.toUpperCase();
+      tuneBuilder.addMetaText("title", titleStr, {
+        startChar: multilineVars.iChar,
+        endChar: multilineVars.iChar + title.length + 2
+      });
+      multilineVars.hasMainTitle = true;
+    }
   };
 
   this.setMeter = function (line) {
@@ -5285,7 +5742,7 @@ var ParseHeader = function ParseHeader(tokenizer, warn, multilineVars, tune, tun
     prestissimo: 210
   };
 
-  this.setTempo = function (line, start, end) {
+  this.setTempo = function (line, start, end, iChar) {
     //Q - tempo; can be used to specify the notes per minute, e.g. If
     //the meter denominator is a 4 note then Q:120 or Q:C=120
     //is 120 quarter notes per minute. Similarly  Q:C3=40 would be 40
@@ -5303,7 +5760,10 @@ var ParseHeader = function ParseHeader(tokenizer, warn, multilineVars, tune, tun
     try {
       var tokens = tokenizer.tokenize(line, start, end);
       if (tokens.length === 0) throw "Missing parameter in Q: field";
-      var tempo = {};
+      var tempo = {
+        startChar: iChar + start - 2,
+        endChar: iChar + end
+      };
       var delaySet = true;
       var token = tokens.shift();
 
@@ -5432,7 +5892,7 @@ var ParseHeader = function ParseHeader(tokenizer, warn, multilineVars, tune, tun
           return [e - i + 1 + ws];
 
         case "[K:":
-          var result = parseKeyVoice.parseKey(line.substring(i + 3, e));
+          var result = parseKeyVoice.parseKey(line.substring(i + 3, e), true);
           if (result.foundClef && tuneBuilder.hasBeginMusic()) tuneBuilder.appendStartingElement('clef', startChar, endChar, multilineVars.clef);
           if (result.foundKey && tuneBuilder.hasBeginMusic()) tuneBuilder.appendStartingElement('key', startChar, endChar, parseKeyVoice.fixKey(multilineVars.clef, multilineVars.key));
           return [e - i + 1 + ws];
@@ -5453,7 +5913,7 @@ var ParseHeader = function ParseHeader(tokenizer, warn, multilineVars, tune, tun
 
         case "[Q:":
           if (e > 0) {
-            var tempo = this.setTempo(line, i + 3, e);
+            var tempo = this.setTempo(line, i + 3, e, multilineVars.iChar);
 
             if (tempo.type === 'delaySet') {
               if (tuneBuilder.hasBeginMusic()) tuneBuilder.appendElement('tempo', startChar, endChar, this.calcTempo(tempo.tempo));else multilineVars.tempoForNextLine = ['tempo', startChar, endChar, this.calcTempo(tempo.tempo)];
@@ -5497,7 +5957,7 @@ var ParseHeader = function ParseHeader(tokenizer, warn, multilineVars, tune, tun
           return [line.length];
 
         case "K:":
-          var result = parseKeyVoice.parseKey(line.substring(i + 2));
+          var result = parseKeyVoice.parseKey(line.substring(i + 2), tuneBuilder.hasBeginMusic());
           if (result.foundClef && tuneBuilder.hasBeginMusic()) tuneBuilder.appendStartingElement('clef', multilineVars.iChar + i, multilineVars.iChar + line.length, multilineVars.clef);
           if (result.foundKey && tuneBuilder.hasBeginMusic()) tuneBuilder.appendStartingElement('key', multilineVars.iChar + i, multilineVars.iChar + line.length, parseKeyVoice.fixKey(multilineVars.clef, multilineVars.key));
           return [line.length];
@@ -5515,7 +5975,7 @@ var ParseHeader = function ParseHeader(tokenizer, warn, multilineVars, tune, tun
         case "Q:":
           var e = line.indexOf('\x12', i + 2);
           if (e === -1) e = line.length;
-          var tempo = this.setTempo(line, i + 2, e);
+          var tempo = this.setTempo(line, i + 2, e, multilineVars.iChar);
           if (tempo.type === 'delaySet') tuneBuilder.appendElement('tempo', multilineVars.iChar + i, multilineVars.iChar + line.length, this.calcTempo(tempo.tempo));else if (tempo.type === 'immediate') tuneBuilder.appendElement('tempo', multilineVars.iChar + i, multilineVars.iChar + line.length, tempo.tempo);
           return [e, line.charAt(i), parseCommon.strip(line.substring(i + 2))];
 
@@ -5552,7 +6012,13 @@ var ParseHeader = function ParseHeader(tokenizer, warn, multilineVars, tune, tun
     var field = metaTextHeaders[line.charAt(0)];
 
     if (field !== undefined) {
-      if (field === 'unalignedWords') tuneBuilder.addMetaTextArray(field, parseDirective.parseFontChangeLine(tokenizer.translateString(tokenizer.stripComment(line.substring(2)))));else tuneBuilder.addMetaText(field, tokenizer.translateString(tokenizer.stripComment(line.substring(2))));
+      if (field === 'unalignedWords') tuneBuilder.addMetaTextArray(field, parseDirective.parseFontChangeLine(tokenizer.translateString(tokenizer.stripComment(line.substring(2)))), {
+        startChar: multilineVars.iChar,
+        endChar: multilineVars.iChar + line.length
+      });else tuneBuilder.addMetaText(field, tokenizer.translateString(tokenizer.stripComment(line.substring(2))), {
+        startChar: multilineVars.iChar,
+        endChar: multilineVars.iChar + line.length
+      });
       return {};
     } else {
       var startChar = multilineVars.iChar;
@@ -5560,12 +6026,18 @@ var ParseHeader = function ParseHeader(tokenizer, warn, multilineVars, tune, tun
 
       switch (line.charAt(0)) {
         case 'H':
-          tuneBuilder.addMetaText("history", tokenizer.translateString(tokenizer.stripComment(line.substring(2))));
+          tuneBuilder.addMetaText("history", tokenizer.translateString(tokenizer.stripComment(line.substring(2))), {
+            startChar: multilineVars.iChar,
+            endChar: multilineVars.iChar + line.length
+          });
           line = tokenizer.peekLine();
 
           while (line && line.charAt(1) !== ':') {
             tokenizer.nextLine();
-            tuneBuilder.addMetaText("history", tokenizer.translateString(tokenizer.stripComment(line)));
+            tuneBuilder.addMetaText("history", tokenizer.translateString(tokenizer.stripComment(line)), {
+              startChar: multilineVars.iChar,
+              endChar: multilineVars.iChar + line.length
+            });
             line = tokenizer.peekLine();
           }
 
@@ -5574,7 +6046,7 @@ var ParseHeader = function ParseHeader(tokenizer, warn, multilineVars, tune, tun
         case 'K':
           // since the key is the last thing that can happen in the header, we can resolve the tempo now
           this.resolveTempo();
-          var result = parseKeyVoice.parseKey(line.substring(2));
+          var result = parseKeyVoice.parseKey(line.substring(2), false);
 
           if (!multilineVars.is_in_header && tuneBuilder.hasBeginMusic()) {
             if (result.foundClef) tuneBuilder.appendStartingElement('clef', startChar, endChar, multilineVars.clef);
@@ -5595,7 +6067,10 @@ var ParseHeader = function ParseHeader(tokenizer, warn, multilineVars, tune, tun
 
         case 'P':
           // TODO-PER: There is more to do with parts, but the writer doesn't care.
-          if (multilineVars.is_in_header) tuneBuilder.addMetaText("partOrder", tokenizer.translateString(tokenizer.stripComment(line.substring(2))));else multilineVars.partForNextLine = {
+          if (multilineVars.is_in_header) tuneBuilder.addMetaText("partOrder", tokenizer.translateString(tokenizer.stripComment(line.substring(2))), {
+            startChar: multilineVars.iChar,
+            endChar: multilineVars.iChar + line.length
+          });else multilineVars.partForNextLine = {
             title: tokenizer.translateString(tokenizer.stripComment(line.substring(2))),
             startChar: startChar,
             endChar: endChar
@@ -5603,7 +6078,7 @@ var ParseHeader = function ParseHeader(tokenizer, warn, multilineVars, tune, tun
           break;
 
         case 'Q':
-          var tempo = this.setTempo(line, 2, line.length);
+          var tempo = this.setTempo(line, 2, line.length, multilineVars.iChar);
           if (tempo.type === 'delaySet') multilineVars.tempo = tempo.tempo;else if (tempo.type === 'immediate') {
             if (!tune.metaText.tempo) tune.metaText.tempo = tempo.tempo;else multilineVars.tempoForNextLine = ['tempo', startChar, endChar, tempo.tempo];
           }
@@ -5687,179 +6162,7 @@ var parseKeyVoice = {};
   };
 
   parseKeyVoice.standardKey = function (keyName, root, acc, localTranspose) {
-    var key1sharp = {
-      acc: 'sharp',
-      note: 'f'
-    };
-    var key2sharp = {
-      acc: 'sharp',
-      note: 'c'
-    };
-    var key3sharp = {
-      acc: 'sharp',
-      note: 'g'
-    };
-    var key4sharp = {
-      acc: 'sharp',
-      note: 'd'
-    };
-    var key5sharp = {
-      acc: 'sharp',
-      note: 'A'
-    };
-    var key6sharp = {
-      acc: 'sharp',
-      note: 'e'
-    };
-    var key7sharp = {
-      acc: 'sharp',
-      note: 'B'
-    };
-    var key1flat = {
-      acc: 'flat',
-      note: 'B'
-    };
-    var key2flat = {
-      acc: 'flat',
-      note: 'e'
-    };
-    var key3flat = {
-      acc: 'flat',
-      note: 'A'
-    };
-    var key4flat = {
-      acc: 'flat',
-      note: 'd'
-    };
-    var key5flat = {
-      acc: 'flat',
-      note: 'G'
-    };
-    var key6flat = {
-      acc: 'flat',
-      note: 'c'
-    };
-    var key7flat = {
-      acc: 'flat',
-      note: 'F'
-    };
-    var keys = {
-      'C#': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
-      'A#m': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
-      'G#Mix': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
-      'D#Dor': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
-      'E#Phr': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
-      'F#Lyd': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
-      'B#Loc': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
-      'F#': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp],
-      'D#m': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp],
-      'C#Mix': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp],
-      'G#Dor': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp],
-      'A#Phr': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp],
-      'BLyd': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp],
-      'E#Loc': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp],
-      'B': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp],
-      'G#m': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp],
-      'F#Mix': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp],
-      'C#Dor': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp],
-      'D#Phr': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp],
-      'ELyd': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp],
-      'A#Loc': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp],
-      'E': [key1sharp, key2sharp, key3sharp, key4sharp],
-      'C#m': [key1sharp, key2sharp, key3sharp, key4sharp],
-      'BMix': [key1sharp, key2sharp, key3sharp, key4sharp],
-      'F#Dor': [key1sharp, key2sharp, key3sharp, key4sharp],
-      'G#Phr': [key1sharp, key2sharp, key3sharp, key4sharp],
-      'ALyd': [key1sharp, key2sharp, key3sharp, key4sharp],
-      'D#Loc': [key1sharp, key2sharp, key3sharp, key4sharp],
-      'A': [key1sharp, key2sharp, key3sharp],
-      'F#m': [key1sharp, key2sharp, key3sharp],
-      'EMix': [key1sharp, key2sharp, key3sharp],
-      'BDor': [key1sharp, key2sharp, key3sharp],
-      'C#Phr': [key1sharp, key2sharp, key3sharp],
-      'DLyd': [key1sharp, key2sharp, key3sharp],
-      'G#Loc': [key1sharp, key2sharp, key3sharp],
-      'D': [key1sharp, key2sharp],
-      'Bm': [key1sharp, key2sharp],
-      'AMix': [key1sharp, key2sharp],
-      'EDor': [key1sharp, key2sharp],
-      'F#Phr': [key1sharp, key2sharp],
-      'GLyd': [key1sharp, key2sharp],
-      'C#Loc': [key1sharp, key2sharp],
-      'G': [key1sharp],
-      'Em': [key1sharp],
-      'DMix': [key1sharp],
-      'ADor': [key1sharp],
-      'BPhr': [key1sharp],
-      'CLyd': [key1sharp],
-      'F#Loc': [key1sharp],
-      'C': [],
-      'Am': [],
-      'GMix': [],
-      'DDor': [],
-      'EPhr': [],
-      'FLyd': [],
-      'BLoc': [],
-      'F': [key1flat],
-      'Dm': [key1flat],
-      'CMix': [key1flat],
-      'GDor': [key1flat],
-      'APhr': [key1flat],
-      'BbLyd': [key1flat],
-      'ELoc': [key1flat],
-      'Bb': [key1flat, key2flat],
-      'Gm': [key1flat, key2flat],
-      'FMix': [key1flat, key2flat],
-      'CDor': [key1flat, key2flat],
-      'DPhr': [key1flat, key2flat],
-      'EbLyd': [key1flat, key2flat],
-      'ALoc': [key1flat, key2flat],
-      'Eb': [key1flat, key2flat, key3flat],
-      'Cm': [key1flat, key2flat, key3flat],
-      'BbMix': [key1flat, key2flat, key3flat],
-      'FDor': [key1flat, key2flat, key3flat],
-      'GPhr': [key1flat, key2flat, key3flat],
-      'AbLyd': [key1flat, key2flat, key3flat],
-      'DLoc': [key1flat, key2flat, key3flat],
-      'Ab': [key1flat, key2flat, key3flat, key4flat],
-      'Fm': [key1flat, key2flat, key3flat, key4flat],
-      'EbMix': [key1flat, key2flat, key3flat, key4flat],
-      'BbDor': [key1flat, key2flat, key3flat, key4flat],
-      'CPhr': [key1flat, key2flat, key3flat, key4flat],
-      'DbLyd': [key1flat, key2flat, key3flat, key4flat],
-      'GLoc': [key1flat, key2flat, key3flat, key4flat],
-      'Db': [key1flat, key2flat, key3flat, key4flat, key5flat],
-      'Bbm': [key1flat, key2flat, key3flat, key4flat, key5flat],
-      'AbMix': [key1flat, key2flat, key3flat, key4flat, key5flat],
-      'EbDor': [key1flat, key2flat, key3flat, key4flat, key5flat],
-      'FPhr': [key1flat, key2flat, key3flat, key4flat, key5flat],
-      'GbLyd': [key1flat, key2flat, key3flat, key4flat, key5flat],
-      'CLoc': [key1flat, key2flat, key3flat, key4flat, key5flat],
-      'Gb': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat],
-      'Ebm': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat],
-      'DbMix': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat],
-      'AbDor': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat],
-      'BbPhr': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat],
-      'CbLyd': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat],
-      'FLoc': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat],
-      'Cb': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat, key7flat],
-      'Abm': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat, key7flat],
-      'GbMix': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat, key7flat],
-      'DbDor': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat, key7flat],
-      'EbPhr': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat, key7flat],
-      'FbLyd': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat, key7flat],
-      'BbLoc': [key1flat, key2flat, key3flat, key4flat, key5flat, key6flat, key7flat],
-      // The following are not in the 2.0 spec, but seem normal enough.
-      // TODO-PER: These SOUND the same as what's written, but they aren't right
-      'A#': [key1flat, key2flat],
-      'B#': [],
-      'D#': [key1flat, key2flat, key3flat],
-      'E#': [key1flat],
-      'G#': [key1flat, key2flat, key3flat, key4flat],
-      'Gbm': [key1sharp, key2sharp, key3sharp, key4sharp, key5sharp, key6sharp, key7sharp],
-      'none': []
-    };
-    return transpose.keySignature(multilineVars, keys, keyName, root, acc, localTranspose);
+    return transpose.keySignature(multilineVars, keyName, root, acc, localTranspose);
   };
 
   var clefLines = {
@@ -6195,7 +6498,7 @@ var parseKeyVoice = {};
     }
   };
 
-  parseKeyVoice.parseKey = function (str) // (and clef)
+  parseKeyVoice.parseKey = function (str, isInline) // (and clef)
   {
     // returns:
     //		{ foundClef: true, foundKey: true }
@@ -6313,8 +6616,12 @@ var parseKeyVoice = {};
 
           var oldKey = parseKeyVoice.deepCopyKey(multilineVars.key); //TODO-PER: HACK! To get the local transpose to work, the transposition is done for each line. This caused the global transposition variable to be factored in twice, so, instead of rewriting that right now, I'm just subtracting one of them here.
 
-          var keyCompensate = multilineVars.globalTranspose ? -multilineVars.globalTranspose : 0;
+          var keyCompensate = !isInline && multilineVars.globalTranspose ? -multilineVars.globalTranspose : 0; //console.log("parse", JSON.stringify(multilineVars), isInline)
+
+          var savedOrigKey;
+          if (isInline) savedOrigKey = multilineVars.globalTransposeOrigKeySig;
           multilineVars.key = parseKeyVoice.deepCopyKey(parseKeyVoice.standardKey(key, retPitch.token, acc, keyCompensate));
+          if (isInline) multilineVars.globalTransposeOrigKeySig = savedOrigKey;
           multilineVars.key.mode = mode;
 
           if (oldKey) {
@@ -7250,7 +7557,7 @@ MusicParser.prototype.parseMusic = function (line) {
           }
 
           multilineVars.addFormattingOptions(el, tune.formatting, 'bar');
-          tuneBuilder.appendElement('bar', startOfLine + i, startOfLine + i + ret[0], bar);
+          tuneBuilder.appendElement('bar', startOfLine + startI, startOfLine + i + ret[0], bar);
           multilineVars.measureNotEmpty = false;
           el = {};
         }
@@ -7278,6 +7585,7 @@ MusicParser.prototype.parseMusic = function (line) {
             if (tripletNotesLeft > 0) warn("Can't nest triplets", line, i);else {
               el.startTriplet = ret.triplet;
               el.tripletMultiplier = ret.tripletQ / ret.triplet;
+              el.tripletR = ret.num_notes;
               tripletNotesLeft = ret.num_notes === undefined ? ret.triplet : ret.num_notes;
             }
           }
@@ -7453,6 +7761,7 @@ MusicParser.prototype.parseMusic = function (line) {
 
               if (core.accidental !== undefined) el.pitches[0].accidental = core.accidental;
               el.pitches[0].pitch = core.pitch;
+              el.pitches[0].name = core.name;
               if (core.midipitch || core.midipitch === 0) el.pitches[0].midipitch = core.midipitch;
               if (core.endSlur !== undefined) el.pitches[0].endSlur = core.endSlur;
               if (core.endTie !== undefined) el.pitches[0].endTie = core.endTie;
@@ -7642,10 +7951,15 @@ var letter_to_grace = function letter_to_grace(line, i) {
         if (note.startTie) inTie = true;
         ii = note.endChar;
         delete note.endChar;
+
+        if (note.end_beam) {
+          note.endBeam = true;
+          delete note.end_beam;
+        }
       } else {
         // We shouldn't get anything but notes or a space here, so report an error
         if (gra[1].charAt(ii) === ' ') {
-          if (gracenotes.length > 0) gracenotes[gracenotes.length - 1].end_beam = true;
+          if (gracenotes.length > 0) gracenotes[gracenotes.length - 1].endBeam = true;
         } else warn("Unknown character '" + gra[1].charAt(ii) + "' while parsing grace note", line, i);
 
         ii++;
@@ -7682,7 +7996,7 @@ function durationOfMeasure(multilineVars) {
 
 var legalAccents = ["trill", "lowermordent", "uppermordent", "mordent", "pralltriller", "accent", "fermata", "invertedfermata", "tenuto", "0", "1", "2", "3", "4", "5", "+", "wedge", "open", "thumb", "snap", "turn", "roll", "breath", "shortphrase", "mediumphrase", "longphrase", "segno", "coda", "D.S.", "D.C.", "fine", "beambr1", "beambr2", "slide", "marcato", "upbow", "downbow", "/", "//", "///", "////", "trem1", "trem2", "trem3", "trem4", "turnx", "invertedturn", "invertedturnx", "trill(", "trill)", "arpeggio", "xstem", "mark", "umarcato", "style=normal", "style=harmonic", "style=rhythm", "style=x", "style=triangle"];
 var volumeDecorations = ["p", "pp", "f", "ff", "mf", "mp", "ppp", "pppp", "fff", "ffff", "sfz"];
-var dynamicDecorations = ["crescendo(", "crescendo)", "diminuendo(", "diminuendo)"];
+var dynamicDecorations = ["crescendo(", "crescendo)", "diminuendo(", "diminuendo)", "glissando(", "glissando)"];
 var accentPseudonyms = [["<", "accent"], [">", "accent"], ["tr", "trill"], ["plus", "+"], ["emphasis", "accent"], ["^", "umarcato"], ["marcato", "umarcato"]];
 var accentDynamicPseudonyms = [["<(", "crescendo("], ["<)", "crescendo)"], [">(", "diminuendo("], [">)", "diminuendo)"]];
 
@@ -8040,6 +8354,15 @@ var rests = {
   z: 'rest',
   Z: 'multimeasure'
 };
+var accMap = {
+  'dblflat': '__',
+  'flat': '_',
+  'natural': '=',
+  'sharp': '^',
+  'dblsharp': '^^',
+  'quarterflat': '_/',
+  'quartersharp': '^/'
+};
 
 var getCoreNote = function getCoreNote(line, index, el, canHaveBrokenRhythm) {
   //var el = { startChar: index };
@@ -8131,6 +8454,8 @@ var getCoreNote = function getCoreNote(line, index, el, canHaveBrokenRhythm) {
       case 'g':
         if (state === 'startSlur' || state === 'sharp2' || state === 'flat2' || state === 'pitch') {
           el.pitch = pitches[line.charAt(index)];
+          el.name = line.charAt(index);
+          if (el.accidental) el.name = accMap[el.accidental] + el.name;
           transpose.note(multilineVars, el);
           state = 'octave'; // At this point we have a valid note. The rest is optional. Set the duration in case we don't get one below
 
@@ -8145,13 +8470,6 @@ var getCoreNote = function getCoreNote(line, index, el, canHaveBrokenRhythm) {
             var key = line.charAt(index);
 
             if (el.accidental) {
-              var accMap = {
-                'dblflat': '__',
-                'flat': '_',
-                'natural': '=',
-                'sharp': '^',
-                'dblsharp': '^^'
-              };
               key = accMap[el.accidental] + key;
             }
 
@@ -8167,6 +8485,7 @@ var getCoreNote = function getCoreNote(line, index, el, canHaveBrokenRhythm) {
       case ',':
         if (state === 'octave') {
           el.pitch -= 7;
+          el.name += ',';
         } else if (isComplete(state)) {
           el.endChar = index;
           return el;
@@ -8177,6 +8496,7 @@ var getCoreNote = function getCoreNote(line, index, el, canHaveBrokenRhythm) {
       case '\'':
         if (state === 'octave') {
           el.pitch += 7;
+          el.name += "'";
         } else if (isComplete(state)) {
           el.endChar = index;
           return el;
@@ -9734,6 +10054,12 @@ var Tokenizer = function Tokenizer(lines, multilineVars) {
           value: parseFloat(num)
         };
 
+      case 'px':
+        return {
+          used: used + 1,
+          value: parseFloat(num)
+        };
+
       case 'cm':
         return {
           used: used + 1,
@@ -9753,17 +10079,11 @@ var Tokenizer = function Tokenizer(lines, multilineVars) {
           value: parseFloat(num)
         };
     }
-
-    return {
-      used: 0
-    };
   };
 
   var substInChord = function substInChord(str) {
-    while (str.indexOf("\\n") !== -1) {
-      str = str.replace("\\n", "\n");
-    }
-
+    str = str.replace(/\\n/g, "\n");
+    str = str.replace(/\\"/g, '"');
     return str;
   };
 
@@ -9779,8 +10099,10 @@ var Tokenizer = function Tokenizer(lines, multilineVars) {
     var matchChar = _matchChar || line.charAt(i);
 
     var pos = i + 1;
+    var esc = false;
 
-    while (pos < line.length && line.charAt(pos) !== matchChar) {
+    while (pos < line.length && (esc || line[pos] !== matchChar)) {
+      esc = line[pos] === '\\';
       ++pos;
     }
 
@@ -9819,9 +10141,15 @@ module.exports = Tokenizer;
 /*!************************************!*\
   !*** ./src/parse/abc_transpose.js ***!
   \************************************/
-/***/ (function(module) {
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
 
 //    abc_transpose.js: Handles the automatic transposition of key signatures, chord symbols, and notes.
+var allNotes = __webpack_require__(/*! ./all-notes */ "./src/parse/all-notes.js");
+
+var transposeChordName = __webpack_require__(/*! ../parse/transpose-chord */ "./src/parse/transpose-chord.js");
+
+var keyAccidentals = __webpack_require__(/*! ../const/key-accidentals */ "./src/const/key-accidentals.js");
+
 var transpose = {};
 var keyIndex = {
   'C': 0,
@@ -9845,16 +10173,16 @@ var keyIndex = {
 var newKey = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 var newKeyMinor = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B'];
 
-transpose.keySignature = function (multilineVars, keys, keyName, root, acc, localTranspose) {
-  if (multilineVars.clef.type === "perc") return {
-    accidentals: keys[keyName],
+transpose.keySignature = function (multilineVars, keyName, root, acc, localTranspose) {
+  if (multilineVars.clef.type === "perc" || multilineVars.clef.type === "none") return {
+    accidentals: keyAccidentals(keyName),
     root: root,
     acc: acc
   };
   if (!localTranspose) localTranspose = 0;
   multilineVars.localTransposeVerticalMovement = 0;
   multilineVars.localTransposePreferFlats = false;
-  var k = keys[keyName];
+  var k = keyAccidentals(keyName);
   if (!k) return multilineVars.key; // If the key isn't in the list, it is non-standard. We won't attempt to transpose it.
 
   multilineVars.localTranspose = (multilineVars.globalTranspose ? multilineVars.globalTranspose : 0) + localTranspose;
@@ -9890,7 +10218,7 @@ transpose.keySignature = function (multilineVars, keys, keyName, root, acc, loca
   if (index > 11) index = index % 12;
   var newKeyName = keyName[0] === 'm' ? newKeyMinor[index] : newKey[index];
   var transposedKey = newKeyName + keyName;
-  var newKeySig = keys[transposedKey];
+  var newKeySig = keyAccidentals(transposedKey);
   if (newKeySig.length > 0 && newKeySig[0].acc === 'flat') multilineVars.localTransposePreferFlats = true;
   var distance = transposedKey.charCodeAt(0) - baseKey.charCodeAt(0);
 
@@ -9919,76 +10247,8 @@ transpose.keySignature = function (multilineVars, keys, keyName, root, acc, loca
   };
 };
 
-var sharpChords = ['C', 'C♯', 'D', "D♯", 'E', 'F', "F♯", 'G', 'G♯', 'A', 'A♯', 'B'];
-var flatChords = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
-var sharpChordsFree = ['C', 'C#', 'D', "D#", 'E', 'F', "F#", 'G', 'G#', 'A', 'A#', 'B'];
-var flatChordsFree = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
-
 transpose.chordName = function (multilineVars, chord) {
-  if (multilineVars.localTranspose && multilineVars.localTranspose % 12 !== 0) {
-    // The chords are the same if it is an exact octave change.
-    var transposeFactor = multilineVars.localTranspose;
-
-    while (transposeFactor < 0) {
-      transposeFactor += 12;
-    }
-
-    if (transposeFactor > 11) transposeFactor = transposeFactor % 12;
-
-    if (multilineVars.freegchord) {
-      chord = chord.replace(/Cb/g, "`~11`");
-      chord = chord.replace(/Db/g, "`~1`");
-      chord = chord.replace(/Eb/g, "`~3`");
-      chord = chord.replace(/Fb/g, "`~4`");
-      chord = chord.replace(/Gb/g, "`~6`");
-      chord = chord.replace(/Ab/g, "`~8`");
-      chord = chord.replace(/Bb/g, "`~10`");
-      chord = chord.replace(/C#/g, "`~1`");
-      chord = chord.replace(/D#/g, "`~3`");
-      chord = chord.replace(/E#/g, "`~5`");
-      chord = chord.replace(/F#/g, "`~6`");
-      chord = chord.replace(/G#/g, "`~8`");
-      chord = chord.replace(/A#/g, "`~10`");
-      chord = chord.replace(/B#/g, "`~0`");
-    } else {
-      chord = chord.replace(/C♭/g, "`~11`");
-      chord = chord.replace(/D♭/g, "`~1`");
-      chord = chord.replace(/E♭/g, "`~3`");
-      chord = chord.replace(/F♭/g, "`~4`");
-      chord = chord.replace(/G♭/g, "`~6`");
-      chord = chord.replace(/A♭/g, "`~8`");
-      chord = chord.replace(/B♭/g, "`~10`");
-      chord = chord.replace(/C♯/g, "`~1`");
-      chord = chord.replace(/D♯/g, "`~3`");
-      chord = chord.replace(/E♯/g, "`~5`");
-      chord = chord.replace(/F♯/g, "`~6`");
-      chord = chord.replace(/G♯/g, "`~8`");
-      chord = chord.replace(/A♯/g, "`~10`");
-      chord = chord.replace(/B♯/g, "`~0`");
-    }
-
-    chord = chord.replace(/C/g, "`~0`");
-    chord = chord.replace(/D/g, "`~2`");
-    chord = chord.replace(/E/g, "`~4`");
-    chord = chord.replace(/F/g, "`~5`");
-    chord = chord.replace(/G/g, "`~7`");
-    chord = chord.replace(/A/g, "`~9`");
-    chord = chord.replace(/B/g, "`~11`");
-    var arr = chord.split("`");
-
-    for (var i = 0; i < arr.length; i++) {
-      if (arr[i][0] === '~') {
-        var chordNum = parseInt(arr[i].substr(1), 10);
-        chordNum += transposeFactor;
-        if (chordNum > 11) chordNum -= 12;
-        if (multilineVars.freegchord) arr[i] = multilineVars.localTransposePreferFlats ? flatChordsFree[chordNum] : sharpChordsFree[chordNum];else arr[i] = multilineVars.localTransposePreferFlats ? flatChords[chordNum] : sharpChords[chordNum];
-      }
-    }
-
-    chord = arr.join("");
-  }
-
-  return chord;
+  return transposeChordName(chord, multilineVars.localTranspose, multilineVars.localTransposePreferFlats, multilineVars.freegchord);
 };
 
 var pitchToLetter = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
@@ -10041,23 +10301,144 @@ var accidentals2 = {
   "1": "sharp",
   "2": "dblsharp"
 };
+var accidentals3 = {
+  "-2": "__",
+  "-1": "_",
+  "0": "=",
+  "1": "^",
+  "2": "^^"
+};
+var count = 0;
 
 transpose.note = function (multilineVars, el) {
-  // the "el" that is passed in has el.accidental, and el.pitch. "pitch" is the vertical position (0=middle C)
+  // the "el" that is passed in has el.name, el.accidental, and el.pitch. "pitch" is the vertical position (0=middle C)
   // localTranspose is the number of half steps
   // localTransposeVerticalMovement is the vertical distance to move.
+  //console.log(count++,multilineVars.localTranspose, el)
   if (!multilineVars.localTranspose || multilineVars.clef.type === "perc") return;
   var origPitch = el.pitch;
-  el.pitch = el.pitch + multilineVars.localTransposeVerticalMovement;
+
+  if (multilineVars.localTransposeVerticalMovement) {
+    el.pitch = el.pitch + multilineVars.localTransposeVerticalMovement;
+
+    if (el.name) {
+      var actual = el.accidental ? el.name.substring(1) : el.name;
+      var acc = el.accidental ? el.name[0] : '';
+      var p = allNotes.pitchIndex(actual);
+      el.name = acc + allNotes.noteName(p + multilineVars.localTransposeVerticalMovement);
+    }
+  }
 
   if (el.accidental) {
     var ret = accidentalChange(origPitch, el.pitch, el.accidental, multilineVars.globalTransposeOrigKeySig, multilineVars.targetKey);
     el.pitch = ret[0];
     el.accidental = accidentals2[ret[1]];
+
+    if (el.name) {
+      el.name = accidentals3[ret[1]] + el.name.replace(/[_^=]/g, '');
+    }
   }
 };
 
 module.exports = transpose;
+
+/***/ }),
+
+/***/ "./src/parse/all-notes.js":
+/*!********************************!*\
+  !*** ./src/parse/all-notes.js ***!
+  \********************************/
+/***/ (function(module) {
+
+var allNotes = {};
+var allPitches = ['C,,,', 'D,,,', 'E,,,', 'F,,,', 'G,,,', 'A,,,', 'B,,,', 'C,,', 'D,,', 'E,,', 'F,,', 'G,,', 'A,,', 'B,,', 'C,', 'D,', 'E,', 'F,', 'G,', 'A,', 'B,', 'C', 'D', 'E', 'F', 'G', 'A', 'B', 'c', 'd', 'e', 'f', 'g', 'a', 'b', "c'", "d'", "e'", "f'", "g'", "a'", "b'", "c''", "d''", "e''", "f''", "g''", "a''", "b''", "c'''", "d'''", "e'''", "f'''", "g'''", "a'''", "b'''"];
+
+allNotes.pitchIndex = function (noteName) {
+  return allPitches.indexOf(noteName);
+};
+
+allNotes.noteName = function (pitchIndex) {
+  return allPitches[pitchIndex];
+};
+
+module.exports = allNotes;
+
+/***/ }),
+
+/***/ "./src/parse/transpose-chord.js":
+/*!**************************************!*\
+  !*** ./src/parse/transpose-chord.js ***!
+  \**************************************/
+/***/ (function(module) {
+
+var sharpChords = ['C', 'C♯', 'D', "D♯", 'E', 'F', "F♯", 'G', 'G♯', 'A', 'A♯', 'B'];
+var flatChords = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
+var sharpChordsFree = ['C', 'C#', 'D', "D#", 'E', 'F', "F#", 'G', 'G#', 'A', 'A#', 'B'];
+var flatChordsFree = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+function transposeChordName(chord, steps, preferFlats, freeGCchord) {
+  if (!steps || steps % 12 === 0) // The chords are the same if it is an exact octave change.
+    return chord; // There are two things in the chord that might need to be transposed:
+  // The chord will start with a letter from A-G, and might have one accidental after it.
+  // That accidental might be an actual sharp or flat char, or it might be a pound sign or lower case "b".
+  // Then there is a bunch of stuff that isn't transposed and should just be copied. That is stuff like "7" and more complicated chords.
+  // But there is one other exception: right after a slash there will be a bass note and possibly an accidental. That should also be transposed.
+
+  while (steps < 0) {
+    steps += 12;
+  }
+
+  if (steps > 11) steps = steps % 12; // (chord name w/accidental) (a bunch of stuff) (/) (bass note) (anything else)
+
+  var match = chord.match(/^([A-G][b#♭♯]?)([^\/]+)?\/?([A-G][b#♭♯]?)?(.+)?/);
+  if (!match) return chord; // We don't recognize the format of the chord, so skip it.
+
+  var name = match[1];
+  var extra1 = match[2];
+  var bass = match[3];
+  var extra2 = match[4];
+  var index = sharpChords.indexOf(name);
+  if (index < 0) index = flatChords.indexOf(name);
+  if (index < 0) index = sharpChordsFree.indexOf(name);
+  if (index < 0) index = flatChordsFree.indexOf(name);
+  if (index < 0) return chord; // This should never happen, but if we can't find the chord just bail.	
+
+  index += steps;
+  index = index % 12;
+
+  if (preferFlats) {
+    if (freeGCchord) chord = flatChordsFree[index];else chord = flatChords[index];
+  } else {
+    if (freeGCchord) chord = sharpChordsFree[index];else chord = sharpChords[index];
+  }
+
+  if (extra1) chord += extra1;
+
+  if (bass) {
+    var index = sharpChords.indexOf(bass);
+    if (index < 0) index = flatChords.indexOf(bass);
+    if (index < 0) index = sharpChordsFree.indexOf(bass);
+    if (index < 0) index = flatChordsFree.indexOf(bass);
+    chord += '/';
+
+    if (index >= 0) {
+      index += steps;
+      index = index % 12;
+
+      if (preferFlats) {
+        if (freeGCchord) chord += flatChordsFree[index];else chord += flatChords[index];
+      } else {
+        if (freeGCchord) chord += sharpChordsFree[index];else chord += sharpChords[index];
+      }
+    } else chord += bass; // Don't know what to do so do nothing
+
+  }
+
+  if (extra2) chord += extra2;
+  return chord;
+}
+
+module.exports = transposeChordName;
 
 /***/ }),
 
@@ -10073,19 +10454,6 @@ var parseCommon = __webpack_require__(/*! ../parse/abc_common */ "./src/parse/ab
 
 var TuneBuilder = function TuneBuilder(tune) {
   var self = this;
-
-  this.reset = function () {
-    tune.version = "1.1.0";
-    tune.media = "screen";
-    tune.metaText = {};
-    tune.formatting = {};
-    tune.lines = [];
-    tune.staffNum = 0;
-    tune.voiceNum = 0;
-    tune.lineNum = 0;
-    tune.runningFonts = {};
-    delete tune.visualTranspose;
-  };
 
   this.setVisualTranspose = function (visualTranspose) {
     if (visualTranspose) tune.visualTranspose = visualTranspose;
@@ -10607,7 +10975,7 @@ var TuneBuilder = function TuneBuilder(tune) {
     return currSlur;
   };
 
-  this.reset();
+  tune.reset();
 
   this.getLastNote = function () {
     if (tune.lines[tune.lineNum] && tune.lines[tune.lineNum].staff && tune.lines[tune.lineNum].staff[tune.staffNum] && tune.lines[tune.lineNum].staff[tune.staffNum].voices[tune.voiceNum]) {
@@ -10823,9 +11191,13 @@ var TuneBuilder = function TuneBuilder(tune) {
     tune.lines.push(hash);
   };
 
-  this.addSubtitle = function (str) {
+  this.addSubtitle = function (str, info) {
     this.pushLine({
-      subtitle: str
+      subtitle: {
+        text: str,
+        startChar: info.startChar,
+        endChar: info.endChar
+      }
     });
   };
 
@@ -10839,19 +11211,25 @@ var TuneBuilder = function TuneBuilder(tune) {
     });
   };
 
-  this.addSeparator = function (spaceAbove, spaceBelow, lineLength) {
+  this.addSeparator = function (spaceAbove, spaceBelow, lineLength, info) {
     this.pushLine({
       separator: {
         spaceAbove: Math.round(spaceAbove),
         spaceBelow: Math.round(spaceBelow),
-        lineLength: Math.round(lineLength)
+        lineLength: Math.round(lineLength),
+        startChar: info.startChar,
+        endChar: info.endChar
       }
     });
   };
 
-  this.addText = function (str) {
+  this.addText = function (str, info) {
     this.pushLine({
-      text: str
+      text: {
+        text: str,
+        startChar: info.startChar,
+        endChar: info.endChar
+      }
     });
   };
 
@@ -10874,7 +11252,7 @@ var TuneBuilder = function TuneBuilder(tune) {
 
   this.containsNotesStrict = function (voice) {
     for (var i = 0; i < voice.length; i++) {
-      if (voice[i].el_type === 'note' && voice[i].rest === undefined) return true;
+      if (voice[i].el_type === 'note' && (voice[i].rest === undefined || voice[i].chord !== undefined)) return true;
     }
 
     return false;
@@ -11085,16 +11463,29 @@ var TuneBuilder = function TuneBuilder(tune) {
     tune.lineNum = i;
   };
 
-  this.addMetaText = function (key, value) {
-    if (tune.metaText[key] === undefined) tune.metaText[key] = value;else tune.metaText[key] += "\n" + value;
+  this.addMetaText = function (key, value, info) {
+    if (tune.metaText[key] === undefined) {
+      tune.metaText[key] = value;
+      tune.metaTextInfo[key] = info;
+    } else {
+      tune.metaText[key] += "\n" + value;
+      tune.metaTextInfo[key].endChar = info.endChar;
+    }
   };
 
-  this.addMetaTextArray = function (key, value) {
-    if (tune.metaText[key] === undefined) tune.metaText[key] = [value];else tune.metaText[key].push(value);
+  this.addMetaTextArray = function (key, value, info) {
+    if (tune.metaText[key] === undefined) {
+      tune.metaText[key] = [value];
+      tune.metaTextInfo[key] = info;
+    } else {
+      tune.metaText[key].push(value);
+      tune.metaTextInfo[key].endChar = info.endChar;
+    }
   };
 
-  this.addMetaTextObj = function (key, value) {
+  this.addMetaTextObj = function (key, value, info) {
     tune.metaText[key] = value;
+    tune.metaTextInfo[key] = info;
   };
 };
 
@@ -11109,7 +11500,7 @@ module.exports = TuneBuilder;
 /***/ (function(module) {
 
 //    wrap_lines.js: does line wrap on an already parsed tune.
-function wrapLines(tune, lineBreaks) {
+function wrapLines(tune, lineBreaks, barNumbers) {
   if (!lineBreaks || tune.lines.length === 0) return; // tune.lines contains nested arrays: there is an array of lines (that's the part this function rewrites),
   // there is an array of staffs per line (for instance, piano will have 2, orchestra will have many)
   // there is an array of voices per staff (for instance, 4-part harmony might have bass and tenor on a single staff)
@@ -11119,11 +11510,11 @@ function wrapLines(tune, lineBreaks) {
   });
   var linesBreakElements = findLineBreaks(lines, lineBreaks); //console.log(JSON.stringify(linesBreakElements))
 
-  tune.lines = addLineBreaks(lines, linesBreakElements);
+  tune.lines = addLineBreaks(lines, linesBreakElements, barNumbers);
   tune.lineBreaks = linesBreakElements;
 }
 
-function addLineBreaks(lines, linesBreakElements) {
+function addLineBreaks(lines, linesBreakElements, barNumbers) {
   // linesBreakElements is an array of all of the elements that break for a new line
   // The objects in the array look like:
   // {"ogLine":0,"line":0,"staff":0,"voice":0,"start":0, "end":21}
@@ -11135,6 +11526,7 @@ function addLineBreaks(lines, linesBreakElements) {
   var lastKeySig = []; // This is per staff - if the key changed then this will be populated.
 
   var lastStem = [];
+  var currentBarNumber = 1;
 
   for (var i = 0; i < linesBreakElements.length; i++) {
     var action = linesBreakElements[i];
@@ -11152,6 +11544,11 @@ function addLineBreaks(lines, linesBreakElements) {
         outputLines[action.line].staff[action.staff] = {
           voices: []
         };
+
+        if (barNumbers !== undefined && action.staff === 0 && action.line > 0) {
+          outputLines[action.line].staff[action.staff].barNumber = currentBarNumber;
+        }
+
         var keys = Object.keys(inputStaff);
 
         for (var k = 0; k < keys.length; k++) {
@@ -11194,6 +11591,15 @@ function addLineBreaks(lines, linesBreakElements) {
             direction: currVoice[kk].direction
           };
           break;
+        }
+      }
+
+      if (barNumbers !== undefined && action.staff === 0 && action.voice === 0) {
+        for (kk = 0; kk < currVoice.length; kk++) {
+          if (currVoice[kk].el_type === 'bar') {
+            currentBarNumber++;
+            if (kk === currVoice.length - 1) delete currVoice[kk].barNumber;else currVoice[kk].barNumber = currentBarNumber;
+          }
         }
       }
     } else {
@@ -11612,6 +12018,575 @@ module.exports = {
 
 /***/ }),
 
+/***/ "./src/str/output.js":
+/*!***************************!*\
+  !*** ./src/str/output.js ***!
+  \***************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+var keyAccidentals = __webpack_require__(/*! ../const/key-accidentals */ "./src/const/key-accidentals.js");
+
+var _require = __webpack_require__(/*! ../const/relative-major */ "./src/const/relative-major.js"),
+    relativeMajor = _require.relativeMajor,
+    transposeKey = _require.transposeKey,
+    relativeMode = _require.relativeMode;
+
+var transposeChordName = __webpack_require__(/*! ../parse/transpose-chord */ "./src/parse/transpose-chord.js");
+
+var strTranspose;
+
+(function () {
+  "use strict";
+
+  strTranspose = function strTranspose(abc, abcTune, steps) {
+    if (abcTune === "TEST") // Backdoor way to get entry points for unit tests
+      return {
+        keyAccidentals: keyAccidentals,
+        relativeMajor: relativeMajor,
+        transposeKey: transposeKey,
+        relativeMode: relativeMode,
+        transposeChordName: transposeChordName
+      };
+    steps = parseInt(steps, 10);
+    var changes = [];
+    var i;
+
+    for (i = 0; i < abcTune.length; i++) {
+      changes = changes.concat(transposeOneTune(abc, abcTune[i], steps));
+    } // Reverse sort so that we are replacing strings from the end to the beginning so that the indexes aren't invalidated as we go.
+    // (Because voices can be written in different ways we can't count on the notes being encountered in the order they appear in the string.)
+
+
+    changes = changes.sort(function (a, b) {
+      return b.start - a.start;
+    });
+    var output = abc.split('');
+
+    for (i = 0; i < changes.length; i++) {
+      var ch = changes[i];
+      output.splice(ch.start, ch.end - ch.start, ch.note);
+    }
+
+    return output.join('');
+  };
+
+  function transposeOneTune(abc, abcTune, steps) {
+    var changes = []; // Don't transpose bagpipe music - that is a special case and is always a particular key
+
+    var key = abcTune.getKeySignature();
+    if (key.root === 'Hp' || key.root === "HP") return changes;
+    changes = changes.concat(changeAllKeySigs(abc, steps));
+
+    for (var i = 0; i < abcTune.lines.length; i++) {
+      var staves = abcTune.lines[i].staff;
+
+      if (staves) {
+        for (var j = 0; j < staves.length; j++) {
+          var staff = staves[j];
+          if (staff.clef.type !== "perc") changes = changes.concat(transposeVoices(abc, staff.voices, staff.key, steps));
+        }
+      }
+    }
+
+    return changes;
+  }
+
+  function changeAllKeySigs(abc, steps) {
+    var changes = [];
+    var arr = abc.split("K:"); // now each line except the first one will start with whatever is right after "K:"
+
+    var count = arr[0].length;
+
+    for (var i = 1; i < arr.length; i++) {
+      var segment = arr[i];
+      var match = segment.match(/^( *)([A-G])([#b]?)(\w*)/);
+
+      if (match) {
+        var start = count + 2 + match[1].length; // move past the 'K:' and optional white space
+
+        var key = match[2] + match[3] + match[4]; // key name, accidental, and mode
+
+        var destinationKey = newKey({
+          root: match[2],
+          acc: match[3],
+          mode: match[4]
+        }, steps);
+        var dest = destinationKey.root + destinationKey.acc + destinationKey.mode;
+        changes.push({
+          start: start,
+          end: start + key.length,
+          note: dest
+        });
+      }
+
+      count += segment.length + 2;
+    }
+
+    return changes;
+  }
+
+  function transposeVoices(abc, voices, key, steps) {
+    var changes = [];
+    var destinationKey = newKey(key, steps);
+
+    for (var i = 0; i < voices.length; i++) {
+      changes = changes.concat(transposeVoice(abc, voices[i], key.root, createKeyAccidentals(key), destinationKey, steps));
+    }
+
+    return changes;
+  }
+
+  function createKeyAccidentals(key) {
+    var ret = {};
+
+    for (var i = 0; i < key.accidentals.length; i++) {
+      var acc = key.accidentals[i];
+      if (acc.acc === 'flat') ret[acc.note.toUpperCase()] = '_';else if (acc.acc === 'sharp') ret[acc.note.toUpperCase()] = '^';
+    }
+
+    return ret;
+  }
+
+  function setLetterDistance(destinationKey, keyRoot, steps) {
+    var letterDistance = letters.indexOf(destinationKey.root) - letters.indexOf(keyRoot);
+    if (keyRoot === "none") letterDistance = letters.indexOf(destinationKey.root);
+
+    if (letterDistance === 0) {
+      // This could either be a half step (like Eb => E) or almost an octave (like E => Eb)
+      if (steps > 2) // If it is a large leap, then we are going up an octave
+        letterDistance += 7;else if (steps === -12) // If it is a large leap, then we are going down an octave	
+        letterDistance -= 7;
+    } else if (steps > 0 && letterDistance < 0) letterDistance += 7;else if (steps < 0 && letterDistance > 0) letterDistance -= 7;
+
+    if (steps > 12) letterDistance += 7;else if (steps < -12) letterDistance -= 7;
+    return letterDistance;
+  }
+
+  function transposeVoice(abc, voice, keyRoot, keyAccidentals, destinationKey, steps) {
+    var changes = [];
+    var letterDistance = setLetterDistance(destinationKey, keyRoot, steps);
+    var measureAccidentals = {};
+    var transposedMeasureAccidentals = {};
+
+    for (var i = 0; i < voice.length; i++) {
+      var el = voice[i];
+
+      if (el.chord) {
+        for (var c = 0; c < el.chord.length; c++) {
+          var ch = el.chord[c];
+
+          if (ch.position === 'default') {
+            var prefersFlats = destinationKey.accidentals.length && destinationKey.accidentals[0].acc === 'flat';
+            var newChord = transposeChordName(ch.name, steps, prefersFlats, true);
+            newChord = newChord.replace(/♭/g, "b").replace(/♯/g, "#");
+            if (newChord !== ch.name) // If we didn't recognize the chord the input is returned unchanged and there is nothing to replace
+              changes.push(replaceChord(abc, el.startChar, el.endChar, newChord));
+          }
+        }
+      }
+
+      if (el.el_type === 'note' && el.pitches) {
+        for (var j = 0; j < el.pitches.length; j++) {
+          var note = parseNote(el.pitches[j].name, keyRoot, keyAccidentals, measureAccidentals);
+          if (note.acc) measureAccidentals[note.name.toUpperCase()] = note.acc;
+          var newPitch = transposePitch(note, destinationKey, letterDistance, transposedMeasureAccidentals);
+          if (newPitch.acc) transposedMeasureAccidentals[newPitch.upper] = newPitch.acc;
+          changes.push(replaceNote(abc, el.startChar, el.endChar, newPitch.acc + newPitch.name, j));
+        }
+
+        if (el.gracenotes) {
+          for (var g = 0; g < el.gracenotes.length; g++) {
+            var grace = parseNote(el.gracenotes[g].name, keyRoot, keyAccidentals, measureAccidentals);
+            if (grace.acc) measureAccidentals[grace.name.toUpperCase()] = grace.acc;
+            var newGrace = transposePitch(grace, destinationKey, letterDistance, measureAccidentals);
+            if (newGrace.acc) transposedMeasureAccidentals[newGrace.upper] = newGrace.acc;
+            changes.push(replaceGrace(abc, el.startChar, el.endChar, newGrace.acc + newGrace.name, g));
+          }
+        }
+      } else if (el.el_type === "bar") {
+        measureAccidentals = {};
+        transposedMeasureAccidentals = {};
+      } else if (el.el_type === "keySignature") {
+        keyRoot = el.root;
+        keyAccidentals = createKeyAccidentals(el);
+        destinationKey = newKey(el, steps);
+        letterDistance = setLetterDistance(destinationKey, keyRoot, steps);
+      }
+    }
+
+    return changes;
+  }
+
+  var letters = "CDEFGAB";
+  var octaves = [",,,,", ",,,", ",,", ",", "", "'", "''", "'''", "''''"];
+
+  function newKey(key, steps) {
+    if (key.root === "none") {
+      return {
+        root: transposeKey("C", steps),
+        mode: "",
+        acc: "",
+        accidentals: []
+      };
+    }
+
+    var major = relativeMajor(key.root + key.acc + key.mode);
+    var newMajor = transposeKey(major, steps);
+    var newMode = relativeMode(newMajor, key.mode);
+    var acc = keyAccidentals(newMajor);
+    return {
+      root: newMode[0],
+      mode: key.mode,
+      acc: newMode.length > 1 ? newMode[1] : '',
+      accidentals: acc
+    };
+  }
+
+  function transposePitch(note, key, letterDistance, measureAccidentals) {
+    // Depending on what the current note and new note are, the octave might have changed
+    // The letterDistance is how far the change is to see if we passed "C" when transposing.
+    var pitch = note.pitch;
+    var origDistFromC = letters.indexOf(note.name);
+    var root = letters.indexOf(key.root);
+    var index = (root + pitch) % 7; // if the note crosses "c" then the octave changes, so that is true of "B" when going up one step, "A" and "B" when going up two steps, etc., and reverse when going down.
+
+    var newDistFromC = origDistFromC + letterDistance;
+    var oct = note.oct;
+
+    while (newDistFromC > 6) {
+      oct++;
+      newDistFromC -= 7;
+    }
+
+    while (newDistFromC < 0) {
+      oct--;
+      newDistFromC += 7;
+    }
+
+    var name = letters[index];
+    var acc = '';
+    var adj = note.adj; // the amount of adjustment depends on the key - if there is a sharp in the key sig, then -1 is a natural, if there isn't, then -1 is a flat.
+
+    var keyAcc = '=';
+
+    for (var i = 0; i < key.accidentals.length; i++) {
+      if (key.accidentals[i].note.toLowerCase() === name.toLowerCase()) {
+        adj = adj + (key.accidentals[i].acc === 'flat' ? -1 : 1);
+        keyAcc = key.accidentals[i].acc === 'flat' ? '_' : '^';
+        break;
+      }
+    }
+
+    switch (adj) {
+      case -2:
+        acc = "__";
+        break;
+
+      case -1:
+        acc = "_";
+        break;
+
+      case 0:
+        acc = "=";
+        break;
+
+      case 1:
+        acc = "^";
+        break;
+
+      case 2:
+        acc = "^^";
+        break;
+
+      case -3:
+        // This requires a triple flat, so bump down the pitch and try again
+        var newNote = {};
+        newNote.pitch = note.pitch - 1;
+        newNote.oct = note.oct;
+        newNote.name = letters[letters.indexOf(note.name) - 1];
+
+        if (!newNote.name) {
+          newNote.name = "B";
+          newNote.oct--;
+        }
+
+        if (newNote.name === "B" || newNote.name === "E") newNote.adj = note.adj + 1;else newNote.adj = note.adj + 2;
+        return transposePitch(newNote, key, letterDistance + 1, measureAccidentals);
+
+      case 3:
+        // This requires a triple sharp, so bump up the pitch and try again
+        var newNote = {};
+        newNote.pitch = note.pitch + 1;
+        newNote.oct = note.oct;
+        newNote.name = letters[letters.indexOf(note.name) + 1];
+
+        if (!newNote.name) {
+          newNote.name = "C";
+          newNote.oct++;
+        }
+
+        if (newNote.name === "C" || newNote.name === "F") newNote.adj = note.adj - 1;else newNote.adj = note.adj - 2;
+        return transposePitch(newNote, key, letterDistance + 1, measureAccidentals);
+    }
+
+    if ((measureAccidentals[name] === acc || !measureAccidentals[name] && acc === keyAcc) && !note.courtesy) acc = "";
+
+    switch (oct) {
+      case 0:
+        name = name + ",,,";
+        break;
+
+      case 1:
+        name = name + ",,";
+        break;
+
+      case 2:
+        name = name + ",";
+        break;
+      // case 3: it is already correct
+
+      case 4:
+        name = name.toLowerCase();
+        break;
+
+      case 5:
+        name = name.toLowerCase() + "'";
+        break;
+
+      case 6:
+        name = name.toLowerCase() + "''";
+        break;
+
+      case 7:
+        name = name.toLowerCase() + "'''";
+        break;
+
+      case 8:
+        name = name.toLowerCase() + "''''";
+        break;
+    }
+
+    if (oct > 4) name = name.toLowerCase();
+    return {
+      acc: acc,
+      name: name,
+      upper: name.toUpperCase()
+    };
+  }
+
+  var regPitch = /([_^=]*)([A-Ga-g])([,']*)/;
+  var regNote = /([_^=]*[A-Ga-g][,']*)(\d*\/*\d*)([\>\<\-\)\.\s\\]*)/;
+  var regOptionalNote = /([_^=]*[A-Ga-g][,']*)?(\d*\/*\d*)?([\>\<\-\)]*)?/;
+  var regSpace = /(\s*)$/; // This the relationship of the note to the tonic and an octave. So what is returned is a distance in steps from the tonic and the amount of adjustment from
+  // a normal scale. That is - in the key of D an F# is two steps from the tonic and no adjustment. A G# is three steps from the tonic and one half-step higher.
+  // I don't think there is any adjustment needed for minor keys since the adjustment is based on the key signature and the accidentals.
+
+  function parseNote(note, keyRoot, keyAccidentals, measureAccidentals) {
+    var root = keyRoot === "none" ? 0 : letters.indexOf(keyRoot);
+    var reg = note.match(regPitch); // reg[1] : "__", "_", "", "=", "^", or "^^"
+    // reg[2] : A-G a-g
+    // reg[3] : commas or apostrophes
+
+    var name = reg[2].toUpperCase();
+    var pos = letters.indexOf(name) - root;
+    if (pos < 0) pos += 7;
+    var oct = octaves.indexOf(reg[3]);
+    if (name === reg[2]) // See if it is a capital letter and subtract an octave if so.
+      oct--;
+    var currentAcc = measureAccidentals[name] || keyAccidentals[name] || "="; //  use the key accidentals if they exist, but override with the measure accidentals, and if neither of them exist, use a natural.
+
+    return {
+      acc: reg[1],
+      name: name,
+      pitch: pos,
+      oct: oct,
+      adj: calcAdjustment(reg[1], keyAccidentals[name], measureAccidentals[name]),
+      courtesy: reg[1] === currentAcc
+    };
+  }
+
+  function replaceNote(abc, start, end, newPitch, index) {
+    // There may be more than just the note between the start and end - there could be spaces, there could be a chord symbol, there could be a decoration.
+    // This could also be a part of a chord. If so, then the particular note needs to be teased out.
+    var note = abc.substring(start, end);
+    var match = note.match(new RegExp(regNote.source + regSpace.source), '');
+
+    if (match) {
+      // This will match a single note
+      var noteLen = match[1].length;
+      var trailingLen = match[2].length + match[3].length + match[4].length;
+      var leadingLen = end - start - noteLen - trailingLen;
+      start += leadingLen;
+      end -= trailingLen;
+    } else {
+      // I don't know how to capture more than one note, so I'm separating them. There is a limit of the number of notes in a chord depending on the repeats I have here, but it is unlikely to happen in real music.
+      var regPreBracket = /([^\[]*)/;
+      var regOpenBracket = /\[/;
+      var regCloseBracket = /\-?](\d*\/*\d*)?([\>\<\-\)]*)/;
+      match = note.match(new RegExp(regPreBracket.source + regOpenBracket.source + regOptionalNote.source + regOptionalNote.source + regOptionalNote.source + regOptionalNote.source + regOptionalNote.source + regOptionalNote.source + regOptionalNote.source + regOptionalNote.source + regCloseBracket.source + regSpace.source));
+
+      if (match) {
+        // This will match a chord
+        // Get the number of chars used by the previous notes in this chord
+        var count = 1 + match[1].length; // one character for the open bracket
+
+        for (var i = 0; i < index; i++) {
+          // index is the iteration through the chord. This function gets called for each one.
+          if (match[i * 3 + 2]) count += match[i * 3 + 2].length;
+          if (match[i * 3 + 3]) count += match[i * 3 + 3].length;
+          if (match[i * 3 + 4]) count += match[i * 3 + 4].length;
+        }
+
+        start += count;
+        var endLen = match[index * 3 + 2] ? match[index * 3 + 2].length : 0; // endLen += match[index * 3 + 3] ? match[index * 3 + 3].length : 0
+        // endLen += match[index * 3 + 4] ? match[index * 3 + 4].length : 0
+
+        end = start + endLen;
+      }
+    }
+
+    return {
+      start: start,
+      end: end,
+      note: newPitch
+    };
+  }
+
+  function replaceGrace(abc, start, end, newGrace, index) {
+    var note = abc.substring(start, end); // I don't know how to capture more than one note, so I'm separating them. There is a limit of the number of notes in a chord depending on the repeats I have here, but it is unlikely to happen in real music.
+
+    var regOpenBrace = /\{/;
+    var regCloseBrace = /\}/;
+    var regPreBrace = /([^\{]*)/;
+    var regPreNote = /(\/*)/;
+    var match = note.match(new RegExp(regPreBrace.source + regOpenBrace.source + regPreNote.source + regOptionalNote.source + regPreNote.source + regOptionalNote.source + regPreNote.source + regOptionalNote.source + regPreNote.source + regOptionalNote.source + regPreNote.source + regOptionalNote.source + regPreNote.source + regOptionalNote.source + regPreNote.source + regOptionalNote.source + regPreNote.source + regOptionalNote.source + regCloseBrace.source));
+
+    if (match) {
+      // This will match all notes inside a grace symbol
+      // Get the number of chars used by the previous graces
+      var count = 1 + match[1].length; // one character for the open brace, and whatever comes before the brace
+
+      for (var i = 0; i < index; i++) {
+        // index is the iteration through the chord. This function gets called for each one.
+        if (match[i * 3 + 2]) count += match[i * 3 + 2].length;
+        if (match[i * 3 + 3]) count += match[i * 3 + 3].length;
+        if (match[i * 3 + 4]) count += match[i * 3 + 4].length;
+        if (match[i * 3 + 5]) count += match[i * 3 + 5].length;
+      }
+
+      if (match[index * 3 + 2]) count += match[i * 3 + 2].length;
+      start += count;
+      var endLen = match[index * 3 + 3] ? match[index * 3 + 3].length : 0;
+      endLen += match[index * 3 + 4] ? match[index * 3 + 4].length : 0;
+      endLen += match[index * 3 + 5] ? match[index * 3 + 5].length : 0;
+      end = start + endLen;
+    }
+
+    return {
+      start: start,
+      end: end,
+      note: newGrace
+    };
+  }
+
+  function replaceChord(abc, start, end, newChord) {
+    // Isolate the chord and just replace that
+    var match = abc.substring(start, end).match(/([^"]+)?(".+")+/);
+    if (match[1]) start += match[1].length;
+    end = start + match[2].length; // leave the quote in, so skip one more
+
+    return {
+      start: start + 1,
+      end: end - 1,
+      note: newChord
+    };
+  }
+
+  function calcAdjustment(thisAccidental, keyAccidental, measureAccidental) {
+    if (!thisAccidental && measureAccidental) {
+      // There was no accidental on this note, but there was earlier in the measure, so we'll use that
+      thisAccidental = measureAccidental;
+    }
+
+    if (!thisAccidental) return 0; // there is no deviation from the key.
+
+    switch (keyAccidental) {
+      case undefined:
+        switch (thisAccidental) {
+          case '__':
+            return -2;
+
+          case '_':
+            return -1;
+
+          case '=':
+            return 0;
+
+          case '^':
+            return 1;
+
+          case '^^':
+            return 2;
+
+          default:
+            return 0;
+          // this should never happen
+        }
+
+      case '_':
+        switch (thisAccidental) {
+          case '__':
+            return -1;
+
+          case '_':
+            return 0;
+
+          case '=':
+            return 1;
+
+          case '^':
+            return 2;
+
+          case '^^':
+            return 3;
+
+          default:
+            return 0;
+          // this should never happen
+        }
+
+      case '^':
+        switch (thisAccidental) {
+          case '__':
+            return -3;
+
+          case '_':
+            return -2;
+
+          case '=':
+            return -1;
+
+          case '^':
+            return 0;
+
+          case '^^':
+            return 1;
+
+          default:
+            return 0;
+          // this should never happen
+        }
+
+    }
+
+    return 0; // this should never happen
+  }
+})();
+
+module.exports = strTranspose;
+
+/***/ }),
+
 /***/ "./src/synth/abc_midi_flattener.js":
 /*!*****************************************!*\
   !*** ./src/synth/abc_midi_flattener.js ***!
@@ -11861,7 +12836,7 @@ var pitchesToPerc = __webpack_require__(/*! ./pitches-to-perc */ "./src/synth/pi
       if (currentTrack[0].instrument === undefined) currentTrack[0].instrument = instrument ? instrument : 0;
       if (currentTrackName) currentTrack.unshift(currentTrackName);
       tracks.push(currentTrack);
-      if (chordTrack.length > 0) // Don't do chords on more than one track, so turn off chord detection after we create it.
+      if (!chordTrackEmpty()) // Don't do chords on more than one track, so turn off chord detection after we create it.
         chordTrackFinished = true;
       if (drumTrack.length > 0) // Don't do drums on more than one track, so turn off drum after we create it.
         drumTrackFinished = true;
@@ -11869,7 +12844,7 @@ var pitchesToPerc = __webpack_require__(/*! ./pitches-to-perc */ "./src/synth/pi
 
 
     if (options.detuneOctave) findOctaves(tracks, parseInt(options.detuneOctave, 10));
-    if (chordTrack.length > 0) tracks.push(chordTrack);
+    if (!chordTrackEmpty()) tracks.push(chordTrack);
     if (drumTrack.length > 0) tracks.push(drumTrack);
     return {
       tempo: startingTempo,
@@ -11886,6 +12861,16 @@ var pitchesToPerc = __webpack_require__(/*! ./pitches-to-perc */ "./src/synth/pi
         return;
       }
     }
+  }
+
+  function chordTrackEmpty() {
+    var isEmpty = true;
+
+    for (var i = 0; i < chordTrack.length && isEmpty; i++) {
+      if (chordTrack[i].cmd === 'note') isEmpty = false;
+    }
+
+    return isEmpty;
   }
 
   function timeToRealTime(time) {
@@ -12379,7 +13364,9 @@ var pitchesToPerc = __webpack_require__(/*! ./pitches-to-perc */ "./src/synth/pi
           volume: velocity,
           start: timeToRealTime(elem.time),
           duration: durationRounded(note.duration),
-          instrument: currentInstrument
+          instrument: currentInstrument,
+          startChar: elem.elem.startChar,
+          endChar: elem.elem.endChar
         };
         p = adjustForMicroTone(p);
 
@@ -12535,8 +13522,15 @@ var pitchesToPerc = __webpack_require__(/*! ./pitches-to-perc */ "./src/synth/pi
 
     for (g = 0; g < graces.length; g++) {
       grace = graces[g];
+      var actualPitch = adjustPitch(grace);
+
+      if (currentInstrument === drumInstrument && percmap) {
+        var name = pitchesToPerc(grace);
+        if (name && percmap[name]) actualPitch = percmap[name].sound;
+      }
+
       var pitch = {
-        pitch: adjustPitch(grace),
+        pitch: actualPitch,
         duration: grace.duration * multiplier
       };
       pitch = adjustForMicroTone(pitch);
@@ -13736,7 +14730,8 @@ var parseCommon = __webpack_require__(/*! ../parse/abc_common */ "./src/parse/ab
         var voiceNumber = 0;
 
         for (var j = 0; j < staves.length; j++) {
-          var staff = staves[j]; // For each staff line
+          var staff = staves[j];
+          if (staff.clef && staff.clef.type === "TAB") continue; // For each staff line
 
           for (var k = 0; k < staff.voices.length; k++) {
             // For each voice in a staff line
@@ -13864,6 +14859,20 @@ var parseCommon = __webpack_require__(/*! ../parse/abc_common */ "./src/parse/ab
                     if (elem.startTriplet) {
                       tripletMultiplier = elem.tripletMultiplier;
                       tripletDurationTotal = elem.startTriplet * tripletMultiplier * elem.duration;
+
+                      if (elem.startTriplet !== elem.tripletR) {
+                        // most commonly (3:2:2
+                        if (v + elem.tripletR <= voice.length) {
+                          var durationTotal = 0;
+
+                          for (var w = v; w < v + elem.tripletR; w++) {
+                            durationTotal += voice[w].duration;
+                          }
+
+                          tripletDurationTotal = tripletMultiplier * durationTotal;
+                        }
+                      }
+
                       noteElem.duration = noteElem.duration * tripletMultiplier;
                       noteElem.duration = Math.round(noteElem.duration * 1000000) / 1000000;
                       tripletDurationCount = noteElem.duration;
@@ -13897,6 +14906,7 @@ var parseCommon = __webpack_require__(/*! ../parse/abc_common */ "./src/parse/ab
                   break;
 
                 case "key":
+                case "keySignature":
                   addKey(voices[voiceNumber], elem);
                   break;
 
@@ -14429,6 +15439,8 @@ var createNoteMap = function createNoteMap(sequence) {
               end: Math.round((ev.start + len - gap) * 1000000) / 1000000,
               volume: ev.volume
             };
+            if (ev.startChar) obj.startChar = ev.startChar;
+            if (ev.endChar) obj.endChar = ev.endChar;
             if (ev.style) obj.style = ev.style;
             if (ev.cents) obj.cents = ev.cents;
             map[i].push(obj);
@@ -14723,10 +15735,10 @@ var soundsCache = __webpack_require__(/*! ./sounds-cache */ "./src/synth/sounds-
 
 
 var notSupportedMessage = "MIDI is not supported in this browser.";
-var defaultSoundFontUrl = "https://paulrosen.github.io/midi-js-soundfonts/abcjs/"; // These are the original soundfonts supplied. They will need a volume boost:
+var originalSoundFontUrl = "https://paulrosen.github.io/midi-js-soundfonts/abcjs/"; // These are the original soundfonts supplied. They will need a volume boost:
 
-var alternateSoundFontUrl = "https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/";
-var alternateSoundFontUrl2 = "https://paulrosen.github.io/midi-js-soundfonts/MusyngKite/";
+var defaultSoundFontUrl = "https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/";
+var alternateSoundFontUrl = "https://paulrosen.github.io/midi-js-soundfonts/MusyngKite/";
 
 function CreateSynth() {
   var self = this;
@@ -14759,10 +15771,51 @@ function CreateSynth() {
     var params = options.options ? options.options : {};
     self.soundFontUrl = params.soundFontUrl ? params.soundFontUrl : defaultSoundFontUrl;
     if (self.soundFontUrl[self.soundFontUrl.length - 1] !== '/') self.soundFontUrl += '/';
-    if (params.soundFontVolumeMultiplier) self.soundFontVolumeMultiplier = params.soundFontVolumeMultiplier;else if (self.soundFontUrl === alternateSoundFontUrl || self.soundFontUrl === alternateSoundFontUrl2) self.soundFontVolumeMultiplier = 5.0;else if (self.soundFontUrl === defaultSoundFontUrl) self.soundFontVolumeMultiplier = 0.5;else self.soundFontVolumeMultiplier = 1.0;
-    if (params.programOffsets) self.programOffsets = params.programOffsets;else if (self.soundFontUrl === defaultSoundFontUrl) self.programOffsets = {
-      "violin": 113,
-      "trombone": 200
+    if (params.soundFontVolumeMultiplier || params.soundFontVolumeMultiplier === 0) self.soundFontVolumeMultiplier = params.soundFontVolumeMultiplier;else if (self.soundFontUrl === defaultSoundFontUrl || self.soundFontUrl === alternateSoundFontUrl) self.soundFontVolumeMultiplier = 3.0;else if (self.soundFontUrl === originalSoundFontUrl) self.soundFontVolumeMultiplier = 0.4;else self.soundFontVolumeMultiplier = 1.0;
+    if (params.programOffsets) self.programOffsets = params.programOffsets;else if (self.soundFontUrl === originalSoundFontUrl) self.programOffsets = {
+      "bright_acoustic_piano": 20,
+      "honkytonk_piano": 20,
+      "electric_piano_1": 30,
+      "electric_piano_2": 30,
+      "harpsichord": 40,
+      "clavinet": 20,
+      "celesta": 20,
+      "glockenspiel": 40,
+      "vibraphone": 30,
+      "marimba": 35,
+      "xylophone": 30,
+      "tubular_bells": 35,
+      "dulcimer": 30,
+      "drawbar_organ": 20,
+      "percussive_organ": 25,
+      "rock_organ": 20,
+      "church_organ": 40,
+      "reed_organ": 40,
+      "accordion": 40,
+      "harmonica": 40,
+      "acoustic_guitar_nylon": 20,
+      "acoustic_guitar_steel": 30,
+      "electric_guitar_jazz": 25,
+      "electric_guitar_clean": 15,
+      "electric_guitar_muted": 35,
+      "overdriven_guitar": 25,
+      "distortion_guitar": 20,
+      "guitar_harmonics": 30,
+      "electric_bass_finger": 15,
+      "electric_bass_pick": 30,
+      "fretless_bass": 40,
+      "violin": 105,
+      "viola": 50,
+      "cello": 40,
+      "contrabass": 60,
+      "trumpet": 10,
+      "trombone": 90,
+      "alto_sax": 20,
+      "tenor_sax": 20,
+      "clarinet": 20,
+      "flute": 50,
+      "banjo": 50,
+      "woodblock": 20
     };else self.programOffsets = {};
     var p = params.fadeLength !== undefined ? parseInt(params.fadeLength, 10) : NaN;
     self.fadeLength = isNaN(p) ? 200 : p;
@@ -14784,6 +15837,7 @@ function CreateSynth() {
     self.onEnded = params.onEnded;
     var allNotes = {};
     var cached = [];
+    var errorNotes = [];
     var currentInstrument = instrumentIndexToName[0];
     self.flattened.tracks.forEach(function (track) {
       track.forEach(function (event) {
@@ -14795,8 +15849,15 @@ function CreateSynth() {
 
           if (noteName) {
             if (!allNotes[currentInstrument]) allNotes[currentInstrument] = {};
-            if (!soundsCache[currentInstrument] || !soundsCache[currentInstrument][noteName]) allNotes[currentInstrument][noteName] = true;else cached.push(currentInstrument + ":" + noteName);
-          } else console.log("Can't find note: ", pitchNumber);
+            if (!soundsCache[currentInstrument] || !soundsCache[currentInstrument][noteName]) allNotes[currentInstrument][noteName] = true;else {
+              var label2 = currentInstrument + ":" + noteName;
+              if (cached.indexOf(label2) < 0) cached.push(label2);
+            }
+          } else {
+            var label = currentInstrument + ":" + noteName;
+            console.log("Can't find note: ", pitchNumber, label);
+            if (errorNotes.indexOf(label) < 0) errorNotes.push(label);
+          }
         }
       });
     });
@@ -14822,7 +15883,7 @@ function CreateSynth() {
     return new Promise(function (resolve, reject) {
       var results = {
         cached: cached,
-        error: [],
+        error: errorNotes,
         loaded: []
       };
       var index = 0;
@@ -14944,7 +16005,7 @@ function CreateSynth() {
       noteMapTracks.forEach(function (noteMap, trackNumber) {
         var panDistance = panDistances && panDistances.length > trackNumber ? panDistances[trackNumber] : 0;
         noteMap.forEach(function (note) {
-          var key = note.instrument + ':' + note.pitch + ':' + note.volume + ':' + Math.round((note.end - note.start) * 1000) / 1000 + ':' + panDistance + ':' + tempoMultiplier + ':' + note.cents;
+          var key = note.instrument + ':' + note.pitch + ':' + note.volume + ':' + Math.round((note.end - note.start) * 1000) / 1000 + ':' + panDistance + ':' + tempoMultiplier + ':' + (note.cents ? note.cents : 0);
           if (!uniqueSounds[key]) uniqueSounds[key] = [];
           uniqueSounds[key].push(note.start);
         });
@@ -14977,30 +16038,53 @@ function CreateSynth() {
         self.debugCallback("creationTime = " + Math.floor((activeAudioContext().currentTime - startTime) * 1000) + "ms");
       }
 
+      function resolveData(me) {
+        var duration = me && me.audioBuffers && me.audioBuffers.length > 0 ? me.audioBuffers[0].duration : 0;
+        return {
+          status: activeAudioContext().state,
+          duration: duration
+        };
+      }
+
       Promise.all(allPromises).then(function () {
-        resolve({
-          status: "ok",
-          seconds: 0
-        });
+        // Safari iOS can mess with the audioContext state, so resume if needed.
+        if (activeAudioContext().state === "suspended") {
+          activeAudioContext().resume().then(function () {
+            resolve(resolveData(self));
+          });
+        } else if (activeAudioContext().state === "interrupted") {
+          activeAudioContext().suspend().then(function () {
+            activeAudioContext().resume().then(function () {
+              resolve(resolveData(self));
+            });
+          });
+        } else {
+          resolve(resolveData(self));
+        }
       });
     });
   };
 
   function setPan(numTracks, panParam) {
+    // panParam, if it is set, can be either a number representing the separation between each track,
+    // or an array, which is the absolute pan position for each track.
     if (panParam === null || panParam === undefined) return null;
     var panDistances = [];
 
     if (panParam.length) {
-      if (numTracks === panParam.length) {
-        var ok = true;
-
-        for (var pp = 0; pp < panParam.length; pp++) {
+      // We received an array. If there are the same number of items in the pan array as the number of tracks,
+      // it all lines up perfectly. If there are more items in the pan array than the tracks then the excess items are ignored.
+      // If there are more tracks than items in the pan array then the remaining tracks are placed in the middle.
+      // If any of the pan numbers are out of range then they are adjusted.
+      for (var pp = 0; pp < numTracks; pp++) {
+        if (pp < panParam.length) {
           var x = parseFloat(panParam[pp]);
-          if (x >= -1 && x <= 1) panDistances.push(x);else ok = false;
-        }
-
-        if (ok) return panDistances;
+          if (x < -1) x = -1;else if (x > 1) x = 1;
+          panDistances.push(x);
+        } else panDistances.push(0);
       }
+
+      return panDistances;
     } else {
       var panNumber = parseFloat(panParam); // the separation needs to be no further than 2 (i.e. -1 to 1) so test to see if there are too many tracks for the passed in distance
 
@@ -15045,8 +16129,8 @@ function CreateSynth() {
   self.pause = function () {
     if (!self.audioBufferPossible) throw new Error(notSupportedMessage);
     if (self.debugCallback) self.debugCallback("pause called");
-    self.stop();
-    self.pausedTimeSec = activeAudioContext().currentTime - self.startTimeSec;
+    self.pausedTimeSec = self.stop();
+    return self.pausedTimeSec;
   };
 
   self.resume = function () {
@@ -15098,6 +16182,8 @@ function CreateSynth() {
       }
     });
     self.directSource = [];
+    var elapsed = activeAudioContext().currentTime - self.startTimeSec;
+    return elapsed;
   };
 
   self.finished = function () {
@@ -15391,104 +16477,46 @@ module.exports = instrumentIndexToName;
 var soundsCache = __webpack_require__(/*! ./sounds-cache */ "./src/synth/sounds-cache.js");
 
 var getNote = function getNote(url, instrument, name, audioContext) {
-  return new Promise(function (resolve, reject) {
-    if (!soundsCache[instrument]) soundsCache[instrument] = {};
-    var instrumentCache = soundsCache[instrument];
-
-    if (instrumentCache[name] === 'error') {
-      return resolve({
-        instrument: instrument,
-        name: name,
-        status: "error",
-        message: "Unable to load sound font" + ' ' + url + ' ' + instrument + ' ' + name
-      });
-    }
-
-    if (instrumentCache[name] === 'pending') {
-      return resolve({
-        instrument: instrument,
-        name: name,
-        status: "pending"
-      });
-    }
-
-    if (instrumentCache[name]) {
-      return resolve({
-        instrument: instrument,
-        name: name,
-        status: "cached"
-      });
-    } // if (this.debugCallback)
-    // 	this.debugCallback(`Loading sound: ${instrument} ${name}`);
-
-
-    instrumentCache[name] = "pending"; // This can be called in parallel, so don't call it a second time before the first one has loaded.
-
+  if (!soundsCache[instrument]) soundsCache[instrument] = {};
+  var instrumentCache = soundsCache[instrument];
+  if (!instrumentCache[name]) instrumentCache[name] = new Promise(function (resolve, reject) {
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', url + instrument + '-mp3/' + name + '.mp3', true);
-    xhr.responseType = 'arraybuffer';
-    var self = this;
+    var noteUrl = url + instrument + "-mp3/" + name + ".mp3";
+    xhr.open("GET", noteUrl, true);
+    xhr.responseType = "arraybuffer";
 
-    function onSuccess(audioBuffer) {
-      instrumentCache[name] = audioBuffer; // if (self.debugCallback)
-      // 	self.debugCallback(`Sound loaded: ${instrument} ${name} ${url}`);
+    xhr.onload = function () {
+      if (xhr.status !== 200) {
+        reject(Error("Can't load sound at " + noteUrl));
+        return;
+      }
 
-      resolve({
-        instrument: instrument,
-        name: name,
-        status: "loaded"
-      });
-    }
-
-    function onFailure(error) {
-      error = "Can't decode sound. " + url + ' ' + instrument + ' ' + name + ' ' + error;
-      if (self.debugCallback) self.debugCallback(error);
-      return resolve({
-        instrument: instrument,
-        name: name,
-        status: "error",
-        message: error
-      });
-    }
-
-    xhr.onload = function (e) {
-      if (this.status === 200) {
-        try {
-          var promise = audioContext.decodeAudioData(this.response, onSuccess, onFailure); // older browsers only have the callback. Newer ones will report an unhandled
-          // rejection if catch isn't handled so we need both. We don't need to report it twice, though.
-
-          if (promise && promise["catch"]) promise["catch"](function () {});
-        } catch (error) {
-          reject(error);
-        }
-      } else {
-        instrumentCache[name] = "error"; // To keep this from trying to load repeatedly.
-
-        var cantLoadMp3 = "Onload error loading sound: " + name + " " + url + " " + e.currentTarget.status + " " + e.currentTarget.statusText;
-        if (self.debugCallback) self.debugCallback(cantLoadMp3);
-        return resolve({
+      var noteDecoded = function noteDecoded(audioBuffer) {
+        resolve({
           instrument: instrument,
           name: name,
-          status: "error",
-          message: cantLoadMp3
+          status: "loaded",
+          audioBuffer: audioBuffer
         });
-      }
+      };
+
+      var maybePromise = audioContext.decodeAudioData(xhr.response, noteDecoded, function () {
+        reject(Error("Can't decode sound at " + noteUrl));
+      }); // In older browsers `BaseAudioContext.decodeAudio()` did not return a promise
+
+      if (maybePromise && typeof maybePromise["catch"] === "function") maybePromise["catch"](reject);
     };
 
-    xhr.addEventListener("error", function () {
-      instrumentCache[name] = "error"; // To keep this from trying to load repeatedly.
+    xhr.onerror = function () {
+      reject(Error("Can't load sound at " + noteUrl));
+    };
 
-      var cantLoadMp3 = "Error in loading sound: " + " " + url;
-      if (self.debugCallback) self.debugCallback(cantLoadMp3);
-      return resolve({
-        instrument: instrument,
-        name: name,
-        status: "error",
-        message: cantLoadMp3
-      });
-    }, false);
     xhr.send();
+  })["catch"](function (err) {
+    console.error("Didn't load note", instrument, name, ":", err.message);
+    throw err;
   });
+  return instrumentCache[name];
 };
 
 module.exports = getNote;
@@ -15706,80 +16734,80 @@ function placeNote(outputAudioBuffer, sampleRate, sound, startArray, volumeMulti
 
   var offlineCtx = new OfflineAC(2, Math.floor((len + fadeTimeSec) * sampleRate), sampleRate);
   var noteName = pitchToNoteName[sound.pitch];
-  var noteBuffer = soundsCache[sound.instrument][noteName];
+  var noteBufferPromise = soundsCache[sound.instrument][noteName];
 
-  if (noteBuffer === "error" || noteBuffer === "pending") {
-    // If the note isn't available, just leave a blank spot
-    // If the note is still pending by now that means an error happened when loading. There was probably a timeout.
-    console.log("Didn't load note", sound.instrument, noteName, noteBuffer);
-    return;
-  } // create audio buffer
-
-
-  var source = offlineCtx.createBufferSource();
-  source.buffer = noteBuffer; // add gain
-  // volume can be between 1 to 127. This translation to gain is just trial and error.
-  // The smaller the first number, the more dynamic range between the quietest to loudest.
-  // The larger the second number, the louder it will be in general.
-
-  var volume = sound.volume / 96 * volumeMultiplier;
-  source.gainNode = offlineCtx.createGain(); // add pan if supported and present
-
-  if (sound.pan && offlineCtx.createStereoPanner) {
-    source.panNode = offlineCtx.createStereoPanner();
-    source.panNode.pan.setValueAtTime(sound.pan, 0);
+  if (!noteBufferPromise) {
+    // if the note isn't present then just skip it - it will leave a blank spot in the audio.
+    return Promise.resolve();
   }
 
-  source.gainNode.gain.value = volume; // Math.min(2, Math.max(0, volume));
+  return noteBufferPromise.then(function (response) {
+    // create audio buffer
+    var source = offlineCtx.createBufferSource();
+    source.buffer = response.audioBuffer; // add gain
+    // volume can be between 1 to 127. This translation to gain is just trial and error.
+    // The smaller the first number, the more dynamic range between the quietest to loudest.
+    // The larger the second number, the louder it will be in general.
 
-  source.gainNode.gain.linearRampToValueAtTime(source.gainNode.gain.value, len);
-  source.gainNode.gain.linearRampToValueAtTime(0.0, len + fadeTimeSec);
+    var volume = sound.volume / 96 * volumeMultiplier;
+    source.gainNode = offlineCtx.createGain(); // add pan if supported and present
 
-  if (sound.cents) {
-    source.playbackRate.value = centsToFactor(sound.cents);
-  } // connect all the nodes
-
-
-  if (source.panNode) {
-    source.panNode.connect(offlineCtx.destination);
-    source.gainNode.connect(source.panNode);
-  } else {
-    source.gainNode.connect(offlineCtx.destination);
-  }
-
-  source.connect(source.gainNode); // Do the process of creating the sound and placing it in the buffer
-
-  source.start(0);
-
-  if (source.noteOff) {
-    source.noteOff(len + fadeTimeSec);
-  } else {
-    source.stop(len + fadeTimeSec);
-  }
-
-  var fnResolve;
-
-  offlineCtx.oncomplete = function (e) {
-    if (e.renderedBuffer) {
-      // If the system gets overloaded then this can start failing. Just drop the note if so.
-      for (var i = 0; i < startArray.length; i++) {
-        //Math.floor(startArray[i] * sound.tempoMultiplier * sampleRate)
-        var start = startArray[i] * sound.tempoMultiplier;
-        if (ofsMs) start -= ofsMs / 1000;
-        if (start < 0) start = 0; // If the item that is moved back is at the very beginning of the buffer then don't move it back. To do that would be to push everything else forward. TODO-PER: this should probably be done at some point but then it would change timing in existing apps.
-
-        start = Math.floor(start * sampleRate);
-        copyToChannel(outputAudioBuffer, e.renderedBuffer, start);
-      }
+    if (sound.pan && offlineCtx.createStereoPanner) {
+      source.panNode = offlineCtx.createStereoPanner();
+      source.panNode.pan.setValueAtTime(sound.pan, 0);
     }
 
-    fnResolve();
-  };
+    source.gainNode.gain.value = volume; // Math.min(2, Math.max(0, volume));
 
-  offlineCtx.startRendering();
-  return new Promise(function (resolve, reject) {
-    fnResolve = resolve;
-  });
+    source.gainNode.gain.linearRampToValueAtTime(source.gainNode.gain.value, len);
+    source.gainNode.gain.linearRampToValueAtTime(0.0, len + fadeTimeSec);
+
+    if (sound.cents) {
+      source.playbackRate.value = centsToFactor(sound.cents);
+    } // connect all the nodes
+
+
+    if (source.panNode) {
+      source.panNode.connect(offlineCtx.destination);
+      source.gainNode.connect(source.panNode);
+    } else {
+      source.gainNode.connect(offlineCtx.destination);
+    }
+
+    source.connect(source.gainNode); // Do the process of creating the sound and placing it in the buffer
+
+    source.start(0);
+
+    if (source.noteOff) {
+      source.noteOff(len + fadeTimeSec);
+    } else {
+      source.stop(len + fadeTimeSec);
+    }
+
+    var fnResolve;
+
+    offlineCtx.oncomplete = function (e) {
+      if (e.renderedBuffer && e.renderedBuffer.getChannelData) {
+        // If the system gets overloaded or there are network problems then this can start failing. Just drop the note if so.
+        for (var i = 0; i < startArray.length; i++) {
+          //Math.floor(startArray[i] * sound.tempoMultiplier * sampleRate)
+          var start = startArray[i] * sound.tempoMultiplier;
+          if (ofsMs) start -= ofsMs / 1000;
+          if (start < 0) start = 0; // If the item that is moved back is at the very beginning of the buffer then don't move it back. To do that would be to push everything else forward. TODO-PER: this should probably be done at some point but then it would change timing in existing apps.
+
+          start = Math.floor(start * sampleRate);
+          copyToChannel(outputAudioBuffer, e.renderedBuffer, start);
+        }
+      }
+
+      fnResolve();
+    };
+
+    offlineCtx.startRendering();
+    return new Promise(function (resolve) {
+      fnResolve = resolve;
+    });
+  })["catch"](function () {});
 }
 
 var copyToChannel = function copyToChannel(toBuffer, fromBuffer, start) {
@@ -15870,7 +16898,7 @@ function registerAudioContext(ac) {
     // no audio context passed in, so create it unless there is already one from before.
     if (!window.abcjsAudioContext) {
       var AudioContext = window.AudioContext || window.webkitAudioContext;
-      window.abcjsAudioContext = new AudioContext();
+      if (AudioContext) window.abcjsAudioContext = new AudioContext();else return false;
     }
   }
   return window.abcjsAudioContext.state !== "suspended";
@@ -15908,10 +16936,10 @@ var activeAudioContext = __webpack_require__(/*! ./active-audio-context */ "./sr
 
 
 function supportsAudio() {
+  if (!window.Promise) return false;
+  if (!window.AudioContext && !window.webkitAudioContext && !navigator.mozAudioContext && !navigator.msAudioContext) return false;
   var aac = activeAudioContext();
   if (aac) return aac.resume !== undefined;
-  if (!window.Promise) return false;
-  return !!window.AudioContext || !!window.webkitAudioContext || !!navigator.mozAudioContext || !!navigator.msAudioContext;
 }
 
 module.exports = supportsAudio;
@@ -16279,6 +17307,1846 @@ module.exports = SynthSequence;
 
 /***/ }),
 
+/***/ "./src/tablatures/instruments/guitar/guitar-fonts.js":
+/*!***********************************************************!*\
+  !*** ./src/tablatures/instruments/guitar/guitar-fonts.js ***!
+  \***********************************************************/
+/***/ (function(module) {
+
+/**
+ * Dedicated fonts for violin tabs
+ */
+
+/**
+ * Set here the fonts used by renderer/drawer 
+ * for the violin plugin
+ * @param {} tune 
+ */
+// eslint-disable-next-line no-unused-vars
+function setGuitarFonts(tune) {
+  /* enhance or change instrument fonts here */
+  // tune.formatting.tabnumberfont = { face: "\"Times New Roman\"", size: 9, weight: "normal", style: "normal", decoration: "none" };
+  // tune.formatting.tabgracefont = { face: "\"Times New Roman\"", size: 7, weight: "normal", style: "normal", decoration: "none" };
+}
+
+module.exports = setGuitarFonts;
+
+/***/ }),
+
+/***/ "./src/tablatures/instruments/guitar/guitar-patterns.js":
+/*!**************************************************************!*\
+  !*** ./src/tablatures/instruments/guitar/guitar-patterns.js ***!
+  \**************************************************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+var StringPatterns = __webpack_require__(/*! ../string-patterns */ "./src/tablatures/instruments/string-patterns.js");
+
+function GuitarPatterns(plugin) {
+  this.tuning = plugin._super.params.tuning;
+
+  if (!this.tuning) {
+    this.tuning = ['E,', 'A,', 'D', 'G', 'B', 'e'];
+  }
+
+  plugin.tuning = this.tuning;
+  this.strings = new StringPatterns(plugin);
+}
+
+GuitarPatterns.prototype.notesToNumber = function (notes, graces) {
+  var converter = this.strings;
+  return converter.notesToNumber(notes, graces);
+};
+
+GuitarPatterns.prototype.stringToPitch = function (stringNumber) {
+  var converter = this.strings;
+  return converter.stringToPitch(stringNumber);
+};
+
+module.exports = GuitarPatterns;
+
+/***/ }),
+
+/***/ "./src/tablatures/instruments/guitar/tab-guitar.js":
+/*!*********************************************************!*\
+  !*** ./src/tablatures/instruments/guitar/tab-guitar.js ***!
+  \*********************************************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+/*
+Emit tab for Guitar staff
+*/
+var StringTablature = __webpack_require__(/*! ../string-tablature */ "./src/tablatures/instruments/string-tablature.js");
+
+var TabCommon = __webpack_require__(/*! ../../tab-common */ "./src/tablatures/tab-common.js");
+
+var TabRenderer = __webpack_require__(/*! ../../tab-renderer */ "./src/tablatures/tab-renderer.js");
+
+var GuitarPatterns = __webpack_require__(/*! ./guitar-patterns */ "./src/tablatures/instruments/guitar/guitar-patterns.js");
+
+var setGuitarFonts = __webpack_require__(/*! ./guitar-fonts */ "./src/tablatures/instruments/guitar/guitar-fonts.js");
+/**
+* upon init mainly store provided instances for later usage
+* @param {*} abcTune  the parsed tune AST tree
+*  @param {*} tuneNumber  the parsed tune AST tree
+* @param {*} params  complementary args provided to Tablature Plugin
+*/
+
+
+Plugin.prototype.init = function (abcTune, tuneNumber, params) {
+  var _super = new TabCommon(abcTune, tuneNumber, params);
+
+  this._super = _super;
+  this.abcTune = abcTune;
+  this.linePitch = 3;
+  this.nbLines = 6;
+  this.isTabBig = true;
+  this.capo = params.capo;
+  this.transpose = params.visualTranspose;
+  this.tablature = new StringTablature(this.nbLines, this.linePitch);
+  var semantics = new GuitarPatterns(this);
+  this.semantics = semantics;
+};
+
+Plugin.prototype.render = function (renderer, line, staffIndex) {
+  if (this._super.inError) return;
+  if (this.tablature.bypass(line)) return;
+  setGuitarFonts(this.abcTune);
+  var rndrer = new TabRenderer(this, renderer, line, staffIndex);
+  rndrer.doLayout();
+};
+
+function Plugin() {} //
+// Tablature plugin definition
+//
+
+
+var AbcGuitarTab = function AbcGuitarTab() {
+  return {
+    name: 'GuitarTab',
+    tablature: Plugin
+  };
+};
+
+module.exports = AbcGuitarTab;
+
+/***/ }),
+
+/***/ "./src/tablatures/instruments/string-patterns.js":
+/*!*******************************************************!*\
+  !*** ./src/tablatures/instruments/string-patterns.js ***!
+  \*******************************************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+var TabNote = __webpack_require__(/*! ./tab-note */ "./src/tablatures/instruments/tab-note.js");
+
+var TabNotes = __webpack_require__(/*! ./tab-notes */ "./src/tablatures/instruments/tab-notes.js");
+
+function buildCapo(self) {
+  var capoTuning = null;
+  var tuning = self.tuning;
+
+  if (self.capo > 0) {
+    capoTuning = [];
+
+    for (var iii = 0; iii < tuning.length; iii++) {
+      var curNote = new TabNote.TabNote(tuning[iii]);
+
+      for (var jjj = 0; jjj < self.capo; jjj++) {
+        curNote = curNote.nextNote();
+      }
+
+      capoTuning[iii] = curNote.emit();
+    }
+  }
+
+  return capoTuning;
+}
+
+function buildPatterns(self) {
+  var strings = [];
+  var tuning = self.tuning;
+
+  if (self.capo > 0) {
+    tuning = self.capoTuning;
+  }
+
+  var pos = tuning.length - 1;
+
+  for (var iii = 0; iii < tuning.length; iii++) {
+    var nextNote = self.highestNote; // highest handled note
+
+    if (iii != tuning.length - 1) {
+      nextNote = tuning[iii + 1];
+    }
+
+    var tabNotes = new TabNotes(tuning[iii], nextNote);
+    var stringNotes = tabNotes.build();
+
+    if (stringNotes.error) {
+      return stringNotes;
+    }
+
+    strings[pos--] = stringNotes;
+  }
+
+  return strings;
+}
+
+function buildSecond(first) {
+  var seconds = [];
+  seconds[0] = [];
+  var strings = first.strings;
+
+  for (var iii = 1; iii < strings.length; iii++) {
+    seconds[iii] = strings[iii - 1];
+  }
+
+  return seconds;
+}
+
+function sameString(self, chord) {
+  for (var jjjj = 0; jjjj < chord.length - 1; jjjj++) {
+    var curPos = chord[jjjj];
+    var nextPos = chord[jjjj + 1];
+
+    if (curPos.str == nextPos.str) {
+      // same String
+      // => change lower pos 
+      if (curPos.str == self.strings.length - 1) {
+        // Invalid tab Chord position for instrument
+        curPos.num = "?";
+        nextPos.num = "?";
+        return;
+      } // change lower pitch on lowest string
+
+
+      if (nextPos.num < curPos.num) {
+        nextPos.str++;
+        nextPos = noteToNumber(self, nextPos.note, nextPos.str, self.secondPos, self.strings[nextPos.str].length);
+      } else {
+        curPos.str++;
+        curPos = noteToNumber(self, curPos.note, curPos.str, self.secondPos, self.strings[curPos.str].length);
+      } // update table
+
+
+      chord[jjjj] = curPos;
+      chord[jjjj + 1] = nextPos;
+    }
+  }
+
+  return null;
+}
+
+function handleChordNotes(self, notes) {
+  var retNotes = [];
+
+  for (var iiii = 0; iiii < notes.length; iiii++) {
+    var note = new TabNote.TabNote(notes[iiii].name);
+    var curPos = toNumber(self, note);
+    retNotes.push(curPos);
+  }
+
+  sameString(self, retNotes);
+  return retNotes;
+}
+
+function noteToNumber(self, note, stringNumber, secondPosition, firstSize) {
+  var strings = self.strings;
+  note.checkKeyAccidentals(self.accidentals);
+
+  if (secondPosition) {
+    strings = secondPosition;
+  }
+
+  var noteName = note.emitNoAccidentals();
+  var num = strings[stringNumber].indexOf(noteName);
+  var acc = note.acc;
+
+  if (num != -1) {
+    if (secondPosition) {
+      num += firstSize;
+    }
+
+    if ((note.isFlat || note.acc == -1) && num == 0) {
+      // flat on 0 pos => previous string 7th position
+      var noteEquiv = note.getAccidentalEquiv();
+      stringNumber++;
+      num = strings[stringNumber].indexOf(noteEquiv.emit());
+      acc = 0;
+    }
+
+    return {
+      num: num + acc,
+      str: stringNumber,
+      note: note
+    };
+  }
+
+  return null;
+}
+
+function toNumber(self, note) {
+  var num = null;
+  var str = 0;
+  var lowestString = self.strings[self.strings.length - 1];
+  var lowestNote = new TabNote.TabNote(lowestString[0]);
+
+  if (note.isLowerThan(lowestNote)) {
+    return {
+      num: "?",
+      str: self.strings.length - 1,
+      note: note,
+      error: note.emit() + ': unexpected note for instrument'
+    };
+  }
+
+  while (str < self.strings.length) {
+    num = noteToNumber(self, note, str);
+
+    if (num) {
+      return num;
+    }
+
+    str++;
+  }
+
+  return null; // not found
+}
+
+StringPatterns.prototype.stringToPitch = function (stringNumber) {
+  var startingPitch = 5.3;
+  var bottom = this.strings.length - 1;
+  return startingPitch + (bottom - stringNumber) * this.linePitch;
+};
+
+function invalidNumber(retNotes, note) {
+  var number = {
+    num: "?",
+    str: 0,
+    note: note
+  };
+  retNotes.push(number);
+  retNotes.error = note.emit() + ': unexpected note for instrument';
+}
+
+StringPatterns.prototype.notesToNumber = function (notes, graces) {
+  var note;
+  var number;
+  var error = null;
+  var retNotes = null;
+
+  if (notes) {
+    retNotes = [];
+
+    if (notes.length > 1) {
+      retNotes = handleChordNotes(this, notes);
+
+      if (retNotes.error) {
+        error = retNotes.error;
+      }
+    } else {
+      note = new TabNote.TabNote(notes[0].name);
+      number = toNumber(this, note);
+
+      if (number) {
+        retNotes.push(number);
+      } else {
+        invalidNumber(retNotes, note);
+        error = retNotes.error;
+      }
+    }
+  }
+
+  if (error) return retNotes;
+  var retGraces = null;
+
+  if (graces) {
+    retGraces = [];
+
+    for (var iiii = 0; iiii < graces.length; iiii++) {
+      note = new TabNote.TabNote(graces[iiii].name);
+      number = toNumber(this, note);
+
+      if (number) {
+        retGraces.push(number);
+      } else {
+        invalidNumber(retGraces, note);
+        error = retNotes.error;
+      }
+    }
+  }
+
+  return {
+    notes: retNotes,
+    graces: retGraces,
+    error: error
+  };
+};
+
+StringPatterns.prototype.toString = function () {
+  return this.tuning.join('').replaceAll(',', '').toUpperCase();
+};
+
+StringPatterns.prototype.tabInfos = function (plugin) {
+  var _super = plugin._super;
+  var name = _super.params.label;
+
+  if (name) {
+    var tunePos = name.indexOf('%T');
+    var tuning = "";
+
+    if (tunePos != -1) {
+      tuning = this.toString();
+
+      if (plugin.capo > 0) {
+        tuning += ' capo:' + plugin.capo;
+      }
+
+      name = name.replace('%T', tuning);
+    }
+
+    return name;
+  }
+
+  return '';
+};
+/**
+ * Common patterns for all string instruments
+ * @param {} plugin
+ * @param {} tuning
+ * @param {*} capo
+ * @param {*} highestNote 
+ */
+
+
+function StringPatterns(plugin) {
+  var tuning = plugin.tuning;
+  var capo = plugin.capo;
+  var highestNote = plugin._super.params.highestNote;
+  this.linePitch = plugin.linePitch;
+  this.highestNote = "a'";
+
+  if (highestNote) {
+    // override default
+    this.highestNote = highestNote;
+  }
+
+  this.capo = 0;
+
+  if (capo) {
+    this.capo = capo;
+  }
+
+  this.tuning = tuning;
+
+  if (this.capo > 0) {
+    this.capoTuning = buildCapo(this);
+  }
+
+  this.strings = buildPatterns(this);
+
+  if (this.strings.error) {
+    plugin._super.setError(this.strings.error);
+
+    plugin.inError = true;
+    return;
+  } // second position pattern per string
+
+
+  this.secondPos = buildSecond(this);
+}
+
+module.exports = StringPatterns;
+
+/***/ }),
+
+/***/ "./src/tablatures/instruments/string-tablature.js":
+/*!********************************************************!*\
+  !*** ./src/tablatures/instruments/string-tablature.js ***!
+  \********************************************************/
+/***/ (function(module) {
+
+/**
+ * Layout tablature informations for draw
+ * @param {*} numLines 
+ * @param {*} lineSpace 
+ */
+function StringTablature(numLines, lineSpace) {
+  this.numLines = numLines;
+  this.lineSpace = lineSpace;
+  this.verticalSize = this.numLines * this.lineSpace;
+  var pitch = 3;
+  this.bar = {
+    pitch: pitch,
+    pitch2: lineSpace * numLines,
+    height: 5
+  };
+}
+/**
+ * return true if current line should not produce a tab
+ * @param {} line 
+ */
+
+
+StringTablature.prototype.bypass = function (line) {
+  var voices = line.staffGroup.voices;
+
+  if (voices.length > 0) {
+    if (voices[0].isPercussion) return true;
+  }
+
+  return false;
+};
+
+StringTablature.prototype.setRelative = function (child, relative, first) {
+  switch (child.type) {
+    case 'bar':
+      relative.pitch = this.bar.pitch;
+      relative.pitch2 = this.bar.pitch2;
+      relative.height = this.height;
+      break;
+
+    case 'symbol':
+      var top = this.bar.pitch2 / 2;
+
+      if (child.name == 'dots.dot') {
+        if (first) {
+          relative.pitch = top;
+          return false;
+        } else {
+          relative.pitch = top + this.lineSpace;
+          return true;
+        }
+      }
+
+      break;
+  }
+
+  return first;
+};
+
+module.exports = StringTablature;
+
+/***/ }),
+
+/***/ "./src/tablatures/instruments/tab-note.js":
+/*!************************************************!*\
+  !*** ./src/tablatures/instruments/tab-note.js ***!
+  \************************************************/
+/***/ (function(module) {
+
+/**
+ * 
+ * Note structure for Tabs
+ * 
+ */
+var notes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+function TabNote(note) {
+  var isFlat = false;
+  var newNote = note;
+  var isSharp = false;
+  var isAltered = false;
+  var natural = null;
+  var quarter = null;
+  var isDouble = false;
+  var acc = 0;
+
+  if (note.startsWith('_')) {
+    isFlat = true;
+    acc = -1; // check quarter flat
+
+    if (note[1] == '/') {
+      isFlat = false;
+      quarter = "v";
+      acc = 0;
+    } else if (note[1] == '_') {
+      // double flat
+      isDouble = true;
+      acc -= 1;
+    }
+  } else if (note.startsWith('^')) {
+    isSharp = true;
+    acc = +1; // check quarter sharp
+
+    if (note[1] == '/') {
+      isSharp = false;
+      quarter = "^";
+      acc = 0;
+    } else if (note[1] == '^') {
+      // double sharp
+      isDouble = true;
+      acc += 1;
+    }
+  } else if (note.startsWith('=')) {
+    natural = true;
+    acc = 0;
+  }
+
+  isAltered = isFlat || isSharp || quarter != null;
+
+  if (isAltered || natural) {
+    if (quarter != null || isDouble) {
+      newNote = note.slice(2);
+    } else {
+      newNote = note.slice(1);
+    }
+  }
+
+  var hasComma = (note.match(/,/g) || []).length;
+  var hasQuote = (note.match(/'/g) || []).length;
+  this.name = newNote;
+  this.acc = acc;
+  this.isSharp = isSharp;
+  this.isKeySharp = false;
+  this.isDouble = isDouble;
+  this.isAltered = isAltered;
+  this.isFlat = isFlat;
+  this.isKeyFlat = false;
+  this.natural = natural;
+  this.quarter = quarter;
+  this.isLower = this.name == this.name.toLowerCase();
+  this.name = this.name[0].toUpperCase();
+  this.hasComma = hasComma;
+  this.isQuoted = hasQuote;
+}
+
+function cloneNote(self) {
+  var newNote = self.name;
+  var newTabNote = new TabNote(newNote);
+  newTabNote.hasComma = self.hasComma;
+  newTabNote.isLower = self.isLower;
+  newTabNote.isQuoted = self.isQuoted;
+  newTabNote.isSharp = self.isSharp;
+  newTabNote.isKeySharp = self.isKeySharp;
+  newTabNote.isFlat = self.isFlat;
+  newTabNote.isKeyFlat = self.isKeyFlat;
+  return newTabNote;
+}
+
+TabNote.prototype.sameNoteAs = function (note) {
+  if (this.name == note.name && this.hasComma == note.hasComma && this.isLower == note.isLower && this.isQuoted == note.isQuoted && this.isSharp == note.isSharp && this.isFlat == note.isFlat) {
+    return true;
+  } else {
+    return false;
+  }
+};
+
+TabNote.prototype.isLowerThan = function (note) {
+  var noteComparator = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+  if (this.hasComma > note.hasComma) return true;
+  if (note.hasComma > this.hasComma) return false;
+  if (this.isQuoted > note.isQuoted) return false;
+  if (note.isQuoted > this.isQuoted) return true;
+
+  if (this.isLower) {
+    if (!note.isLower) return false;
+  } else {
+    if (note.isLower) return true;
+  }
+
+  var noteName = note.name[0].toUpperCase();
+  var thisName = this.name[0].toUpperCase();
+  if (noteComparator.indexOf(thisName) < noteComparator.indexOf(noteName)) return true;
+  return false;
+};
+
+TabNote.prototype.checkKeyAccidentals = function (accidentals) {
+  if (accidentals) {
+    var curNote = this.name;
+
+    for (var iii = 0; iii < accidentals.length; iii++) {
+      var curAccidentals = accidentals[iii];
+
+      if (curNote == curAccidentals.note.toUpperCase()) {
+        if (curAccidentals.acc == 'flat') {
+          this.acc = -1;
+          this.isKeyFlat = true;
+        }
+
+        if (curAccidentals.acc == 'sharp') {
+          this.acc = +1;
+          this.isKeySharp = true;
+        }
+      }
+    }
+  }
+};
+
+TabNote.prototype.getAccidentalEquiv = function () {
+  var cloned = cloneNote(this);
+
+  if (cloned.isSharp || cloned.isKeySharp) {
+    cloned = cloned.nextNote();
+    cloned.isFlat = true;
+    cloned.isSharp = false;
+    cloned.isKeySharp = false;
+  } else if (cloned.isFlat || cloned.isKeyFlat) {
+    cloned = cloned.prevNote();
+    cloned.isSharp = true;
+    cloned.isFlat = false;
+    cloned.isKeyFlat = false;
+  }
+
+  return cloned;
+};
+
+TabNote.prototype.nextNote = function () {
+  var newTabNote = cloneNote(this);
+
+  if (!this.isSharp && !this.isKeySharp) {
+    if (this.name != 'E' && this.name != 'B') {
+      newTabNote.isSharp = true;
+      return newTabNote;
+    }
+  } else {
+    // cleanup
+    newTabNote.isSharp = false;
+    newTabNote.isKeySharp = false;
+  }
+
+  var noteIndex = notes.indexOf(this.name);
+
+  if (noteIndex == notes.length - 1) {
+    noteIndex = 0;
+  } else {
+    noteIndex++;
+  }
+
+  newTabNote.name = notes[noteIndex];
+
+  if (newTabNote.name == 'C') {
+    if (newTabNote.hasComma > 0) {
+      newTabNote.hasComma--;
+    } else {
+      if (!newTabNote.isLower) {
+        newTabNote.isLower = true;
+      } else {
+        newTabNote.isQuoted = true;
+      }
+    }
+  }
+
+  return newTabNote;
+};
+
+TabNote.prototype.prevNote = function () {
+  var newTabNote = cloneNote(this);
+
+  if (this.isSharp) {
+    newTabNote.isSharp = false;
+    return newTabNote;
+  }
+
+  var noteIndex = notes.indexOf(this.name);
+
+  if (noteIndex == 0) {
+    noteIndex = notes.length - 1;
+  } else {
+    noteIndex--;
+  }
+
+  newTabNote.name = notes[noteIndex];
+
+  if (newTabNote.name == 'B') {
+    if (newTabNote.isLower) {
+      newTabNote.hasComma = 1;
+    } else {
+      if (newTabNote.hasComma > 0) {
+        newTabNote.hasComma++;
+      } else {
+        if (newTabNote.isQuoted > 0) {
+          newTabNote.isQuoted -= 1;
+        } else {
+          newTabNote.isLower = true;
+        }
+      }
+    }
+  }
+
+  if (this.isFlat) {
+    newTabNote.isFlat = false;
+    return newTabNote;
+  } else {
+    if (this.name != 'E' && this.name != 'B') {
+      newTabNote.isSharp = true;
+    }
+  }
+
+  return newTabNote;
+};
+
+TabNote.prototype.emitNoAccidentals = function () {
+  var returned = this.name;
+
+  if (this.isLower) {
+    returned = returned.toLowerCase();
+  }
+
+  for (var ii = 0; ii < this.isQuoted; ii++) {
+    returned += "'";
+  }
+
+  for (var jj = 0; jj < this.hasComma; jj++) {
+    returned += ",";
+  }
+
+  return returned;
+};
+
+TabNote.prototype.emit = function () {
+  var returned = this.name;
+
+  if (this.isSharp || this.isKeySharp) {
+    returned = '^' + returned;
+
+    if (this.isDouble) {
+      returned = '^' + returned;
+    }
+  }
+
+  if (this.isFlat || this.isKeyFlat) {
+    returned = '_' + returned;
+
+    if (this.isDouble) {
+      returned = '_' + returned;
+    }
+  }
+
+  if (this.quarter) {
+    if (this.quarter == "^") {
+      returned = "^/" + returned;
+    } else {
+      returned = "_/" + returned;
+    }
+  }
+
+  if (this.natural) {
+    returned = '=' + returned;
+  }
+
+  for (var ii = 1; ii <= this.hasComma; ii++) {
+    returned += ',';
+  }
+
+  if (this.isLower) {
+    returned = returned.toLowerCase();
+
+    for (var jj = 1; jj <= this.isQuoted; jj++) {
+      returned += "'";
+    }
+  }
+
+  return returned;
+};
+
+module.exports = {
+  'TabNote': TabNote,
+  'notes': notes
+};
+
+/***/ }),
+
+/***/ "./src/tablatures/instruments/tab-notes.js":
+/*!*************************************************!*\
+  !*** ./src/tablatures/instruments/tab-notes.js ***!
+  \*************************************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+var TabNote = __webpack_require__(/*! ./tab-note */ "./src/tablatures/instruments/tab-note.js");
+
+var notes = TabNote.notes;
+
+function TabNotes(fromNote, toNote) {
+  this.fromN = new TabNote.TabNote(fromNote);
+  this.toN = new TabNote.TabNote(toNote);
+}
+
+TabNotes.prototype.build = function () {
+  var fromN = this.fromN;
+  var toN = this.toN; // check that toN is not lower than fromN
+
+  if (toN.isLowerThan(fromN)) {
+    var from = fromN.emit();
+    var tn = toN.emit();
+    return {
+      error: 'Invalid string Instrument tuning : ' + tn + ' string lower than ' + from + ' string'
+    };
+  }
+
+  var buildReturned = [];
+  var startIndex = notes.indexOf(fromN.name);
+  var toIndex = notes.indexOf(toN.name);
+
+  if (startIndex == -1 || toIndex == -1) {
+    return buildReturned;
+  }
+
+  var finished = false;
+
+  while (!finished) {
+    buildReturned.push(fromN.emit());
+    fromN = fromN.nextNote();
+
+    if (fromN.sameNoteAs(toN)) {
+      finished = true;
+    }
+  }
+
+  return buildReturned;
+};
+
+module.exports = TabNotes;
+
+/***/ }),
+
+/***/ "./src/tablatures/instruments/violin/tab-violin.js":
+/*!*********************************************************!*\
+  !*** ./src/tablatures/instruments/violin/tab-violin.js ***!
+  \*********************************************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+var StringTablature = __webpack_require__(/*! ../string-tablature */ "./src/tablatures/instruments/string-tablature.js");
+
+var TabCommon = __webpack_require__(/*! ../../tab-common */ "./src/tablatures/tab-common.js");
+
+var TabRenderer = __webpack_require__(/*! ../../tab-renderer */ "./src/tablatures/tab-renderer.js");
+
+var ViolinPatterns = __webpack_require__(/*! ./violin-patterns */ "./src/tablatures/instruments/violin/violin-patterns.js");
+
+var setViolinFonts = __webpack_require__(/*! ./violin-fonts */ "./src/tablatures/instruments/violin/violin-fonts.js");
+/**
+ * upon init mainly store provided instances for later usage
+ * @param {*} abcTune  the parsed tune AST tree
+*  @param {*} tuneNumber  the parsed tune AST tree
+ * @param {*} params  complementary args provided to Tablature Plugin
+ */
+
+
+Plugin.prototype.init = function (abcTune, tuneNumber, params) {
+  var _super = new TabCommon(abcTune, tuneNumber, params);
+
+  this.abcTune = abcTune;
+  this._super = _super;
+  this.linePitch = 3;
+  this.nbLines = 4;
+  this.isTabBig = false;
+  this.capo = params.capo;
+  this.transpose = params.visualTranspose;
+  this.tablature = new StringTablature(this.nbLines, this.linePitch);
+  var semantics = new ViolinPatterns(this);
+  this.semantics = semantics;
+};
+
+Plugin.prototype.render = function (renderer, line, staffIndex) {
+  if (this._super.inError) return;
+  if (this.tablature.bypass(line)) return;
+  setViolinFonts(this.abcTune);
+  var rndrer = new TabRenderer(this, renderer, line, staffIndex);
+  rndrer.doLayout();
+};
+
+function Plugin() {} //
+// Tablature plugin definition
+//
+
+
+var AbcViolinTab = function AbcViolinTab() {
+  return {
+    name: 'ViolinTab',
+    tablature: Plugin
+  };
+};
+
+module.exports = AbcViolinTab;
+
+/***/ }),
+
+/***/ "./src/tablatures/instruments/violin/violin-fonts.js":
+/*!***********************************************************!*\
+  !*** ./src/tablatures/instruments/violin/violin-fonts.js ***!
+  \***********************************************************/
+/***/ (function(module) {
+
+/**
+ * Dedicated fonts for violin tabs
+ */
+
+/**
+ * Set here the fonts used by renderer/drawer 
+ * for the violin plugin
+ * @param {} tune 
+ */
+// eslint-disable-next-line no-unused-vars
+function setViolinFonts(tune) {
+  /* enhance or change instrument fonts here */
+  // tune.formatting.tabnumberfont = { face: "\"Times New Roman\"", size: 9, weight: "normal", style: "normal", decoration: "none" };
+  // tune.formatting.tabgracefont = { face: "\"Times New Roman\"", size: 7, weight: "normal", style: "normal", decoration: "none" };
+}
+
+module.exports = setViolinFonts;
+
+/***/ }),
+
+/***/ "./src/tablatures/instruments/violin/violin-patterns.js":
+/*!**************************************************************!*\
+  !*** ./src/tablatures/instruments/violin/violin-patterns.js ***!
+  \**************************************************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+var StringPatterns = __webpack_require__(/*! ../string-patterns */ "./src/tablatures/instruments/string-patterns.js");
+
+function ViolinPatterns(plugin) {
+  this.tuning = plugin._super.params.tuning;
+
+  if (!this.tuning) {
+    this.tuning = ['G,', 'D', 'A', 'e'];
+  }
+
+  plugin.tuning = this.tuning;
+  this.strings = new StringPatterns(plugin);
+}
+
+ViolinPatterns.prototype.notesToNumber = function (notes, graces) {
+  var converter = this.strings;
+  return converter.notesToNumber(notes, graces);
+};
+
+ViolinPatterns.prototype.stringToPitch = function (stringNumber) {
+  var converter = this.strings;
+  return converter.stringToPitch(stringNumber);
+};
+
+module.exports = ViolinPatterns;
+
+/***/ }),
+
+/***/ "./src/tablatures/tab-absolute-elements.js":
+/*!*************************************************!*\
+  !*** ./src/tablatures/tab-absolute-elements.js ***!
+  \*************************************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+/**
+ * Tablature Absolute elements factory
+ */
+var AbsoluteElement = __webpack_require__(/*! ../write/abc_absolute_element */ "./src/write/abc_absolute_element.js");
+
+var RelativeElement = __webpack_require__(/*! ../write/abc_relative_element */ "./src/write/abc_relative_element.js");
+
+var Transposer = __webpack_require__(/*! ./transposer */ "./src/tablatures/transposer.js");
+
+function isObject(a) {
+  return a != null && a.constructor === Object;
+}
+
+function cloneObject(dest, src) {
+  for (var prop in src) {
+    if (src.hasOwnProperty(prop)) {
+      if (!(Array.isArray(src[prop]) || isObject(src[prop]))) {
+        dest[prop] = src[prop];
+      }
+    }
+  }
+}
+
+function cloneAbsolute(absSrc) {
+  var returned = new AbsoluteElement('', 0, 0, '', 0);
+  cloneObject(returned, absSrc);
+  returned.top = 0;
+  returned.bottom = -1;
+
+  if (absSrc.abcelem) {
+    returned.abcelem = {};
+    cloneObject(returned.abcelem, absSrc.abcelem);
+    if (returned.abcelem.el_type === "note") returned.abcelem.el_type = 'tabNumber';
+  }
+
+  return returned;
+}
+
+function cloneAbsoluteAndRelatives(absSrc, plugin) {
+  var returned = cloneAbsolute(absSrc);
+
+  if (plugin) {
+    var children = absSrc.children; // proceed with relative as well
+
+    var first = true;
+
+    for (var ii = 0; ii < children.length; ii++) {
+      var child = children[ii];
+      var relative = new RelativeElement('', 0, 0, 0, '');
+      cloneObject(relative, child);
+      first = plugin.tablature.setRelative(child, relative, first);
+      returned.children.push(relative);
+    }
+  }
+
+  return returned;
+}
+
+function buildTabAbsolute(plugin, absX, relX) {
+  var tabIcon = 'tab.tiny';
+  var tabYPos = 7.5;
+
+  if (plugin.isTabBig) {
+    tabIcon = 'tab.big';
+    tabYPos = 10;
+  }
+
+  var element = {
+    el_type: "tab",
+    icon: tabIcon,
+    Ypos: tabYPos
+  };
+  var tabAbsolute = new AbsoluteElement(element, 0, 0, "symbol", 0);
+  tabAbsolute.x = absX;
+  var tabRelative = new RelativeElement(tabIcon, 0, 0, 7.5, "tab");
+  tabRelative.x = relX;
+  tabAbsolute.children.push(tabRelative);
+
+  if (tabAbsolute.abcelem.el_type == 'tab') {
+    tabRelative.pitch = tabYPos;
+  }
+
+  return tabAbsolute;
+}
+
+function lyricsDim(abs) {
+  if (abs.extra) {
+    for (var ii = 0; ii < abs.extra.length; ii++) {
+      var extra = abs.extra[ii];
+
+      if (extra.type == 'lyric') {
+        return {
+          bottom: extra.bottom,
+          height: extra.height
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+function TabAbsoluteElements() {
+  this.accidentals = null;
+}
+
+function getInitialStaffSize(staffGroup) {
+  var returned = 0;
+
+  for (var ii = 0; ii < staffGroup.length; ii++) {
+    if (!staffGroup[ii].tabNameInfos) returned++;
+  }
+
+  return returned;
+}
+
+function buildRelativeTabNote(plugin, relX, def, curNote, isGrace) {
+  var strNote = curNote.num;
+
+  if (curNote.note.quarter != null) {
+    // add tab quarter => needs to string conversion then 
+    strNote = strNote.toString();
+    strNote += curNote.note.quarter;
+  }
+
+  var pitch = plugin.semantics.stringToPitch(curNote.str);
+  def.notes.push({
+    num: strNote,
+    str: curNote.str,
+    pitch: curNote.note.emit()
+  });
+  var opt = {
+    type: 'tabNumber'
+  };
+  var tabNoteRelative = new RelativeElement(strNote, 0, 0, pitch + 0.3, opt);
+  tabNoteRelative.x = relX;
+  tabNoteRelative.isGrace = isGrace;
+  tabNoteRelative.isAltered = curNote.note.isAltered;
+  return tabNoteRelative;
+}
+
+function getXGrace(abs, index) {
+  var found = 0;
+
+  if (abs.extra) {
+    for (var ii = 0; ii < abs.extra.length; ii++) {
+      if (abs.extra[ii].c.indexOf('noteheads') >= 0) {
+        if (found === index) {
+          return abs.extra[ii].x + abs.extra[ii].w / 2;
+        } else {
+          found++;
+        }
+      }
+    }
+  }
+
+  return -1;
+}
+
+function graceInRest(absElem) {
+  if (absElem.abcelem) {
+    var elem = absElem.abcelem;
+
+    if (elem.rest) {
+      return elem.gracenotes;
+    }
+  }
+
+  return null;
+}
+
+function checkTransposition(plugin, transposer, pitches, graceNotes) {
+  if (plugin.transpose) {
+    //transposer.transpose(plugin.transpose);
+    for (var jj = 0; jj < pitches.length; jj++) {
+      pitches[jj] = transposer.transposeNote(pitches[jj]);
+    }
+
+    if (graceNotes) {
+      for (var kk = 0; kk < graceNotes.length; kk++) {
+        graceNotes[kk] = transposer.transposeNote(graceNotes[kk]);
+      }
+    }
+  }
+}
+
+function convertToNumber(plugin, pitches, graceNotes) {
+  var tabPos = plugin.semantics.notesToNumber(pitches, graceNotes);
+
+  if (tabPos.error) {
+    plugin._super.setError(tabPos.error);
+
+    return tabPos; // give up on error here
+  }
+
+  if (tabPos.graces && tabPos.notes) {
+    // add graces to last note in notes
+    var posNote = tabPos.notes.length - 1;
+    tabPos.notes[posNote].graces = tabPos.graces;
+  }
+
+  return tabPos;
+}
+
+function buildGraceRelativesForRest(plugin, abs, absChild, graceNotes, tabVoice) {
+  for (var mm = 0; mm < graceNotes.length; mm++) {
+    var defGrace = {
+      el_type: "note",
+      startChar: absChild.abcelem.startChar,
+      endChar: absChild.abcelem.endChar,
+      notes: [],
+      grace: true
+    };
+    var graceX = getXGrace(absChild, mm);
+    var curGrace = graceNotes[mm];
+    var tabGraceRelative = buildRelativeTabNote(plugin, graceX, defGrace, curGrace, true);
+    abs.children.push(tabGraceRelative);
+    tabVoice.push(defGrace);
+  }
+}
+/**
+ * Build tab absolutes by scanning current staff line absolute array
+ * @param {*} staffAbsolute
+ */
+
+
+TabAbsoluteElements.prototype.build = function (plugin, staffAbsolute, tabVoice, voiceIndex, staffIndex, keySig) {
+  var staffSize = getInitialStaffSize(staffAbsolute);
+  var source = staffAbsolute[staffIndex + voiceIndex];
+  var dest = staffAbsolute[staffSize + staffIndex + voiceIndex];
+  var transposer = null;
+  var tabPos = null;
+  var defNote = null;
+
+  if (source.children[0].abcelem.el_type != 'clef') {
+    // keysig missing => provide one for tabs
+    if (keySig != 'none') {
+      source.children.splice(0, 0, keySig);
+    }
+  }
+
+  for (var ii = 0; ii < source.children.length; ii++) {
+    var absChild = source.children[ii];
+    var absX = absChild.x;
+    var relX = absX; // if (absChild.children.length > 0) {
+    //   relX = absChild.children[0].x;
+    // }
+
+    if (absChild.isClef) {
+      dest.children.push(buildTabAbsolute(plugin, absX, relX));
+    }
+
+    switch (absChild.type) {
+      case 'staff-extra key-signature':
+        // refresh key accidentals
+        this.accidentals = absChild.abcelem.accidentals;
+        plugin.semantics.strings.accidentals = this.accidentals;
+
+        if (plugin.transpose) {
+          transposer = new Transposer(absChild.abcelem.accidentals, plugin.transpose);
+        }
+
+        break;
+
+      case 'bar':
+        var lastBar = false;
+
+        if (ii === source.children.length - 1) {
+          // used for final line bar drawing
+          // for multi tabs / multi staves
+          lastBar = true;
+        }
+
+        var cloned = cloneAbsoluteAndRelatives(absChild, plugin);
+
+        if (cloned.abcelem.barNumber) {
+          delete cloned.abcelem.barNumber;
+
+          for (var bn = 0; bn < cloned.children.length; bn++) {
+            if (cloned.children[bn].type === "barNumber") {
+              cloned.children.splice(bn, 1);
+              break;
+            }
+          }
+        }
+
+        cloned.abcelem.lastBar = lastBar;
+        dest.children.push(cloned);
+        tabVoice.push({
+          el_type: absChild.abcelem.el_type,
+          type: absChild.abcelem.type,
+          endChar: absChild.abcelem.endChar,
+          startChar: absChild.abcelem.startChar,
+          abselem: cloned
+        });
+        break;
+
+      case 'rest':
+        var restGraces = graceInRest(absChild);
+
+        if (restGraces) {
+          // check transpose
+          checkTransposition(plugin, transposer, null, restGraces); // to number conversion 
+
+          tabPos = convertToNumber(plugin, null, restGraces);
+          if (tabPos.error) return; // build relative for grace
+
+          defGrace = {
+            el_type: "note",
+            startChar: absChild.abcelem.startChar,
+            endChar: absChild.abcelem.endChar,
+            notes: [],
+            grace: true
+          };
+          buildGraceRelativesForRest(plugin, abs, absChild, tabPos.graces, tabVoice);
+        }
+
+        break;
+
+      case 'note':
+        var abs = cloneAbsolute(absChild);
+        abs.x = absChild.heads[0].x + absChild.heads[0].w / 2; // center the number
+
+        abs.lyricDim = lyricsDim(absChild);
+        var pitches = absChild.abcelem.pitches;
+        var graceNotes = absChild.abcelem.gracenotes; // check transpose
+
+        abs.type = 'tabNumber';
+        checkTransposition(plugin, transposer, pitches, graceNotes); // to number conversion 
+
+        tabPos = convertToNumber(plugin, pitches, graceNotes);
+        if (tabPos.error) return;
+
+        if (tabPos.graces) {
+          // add graces to last note in notes
+          var posNote = tabPos.notes.length - 1;
+          tabPos.notes[posNote].graces = tabPos.graces;
+        } // build relative
+
+
+        defNote = {
+          el_type: "note",
+          startChar: absChild.abcelem.startChar,
+          endChar: absChild.abcelem.endChar,
+          notes: []
+        };
+
+        for (var ll = 0; ll < tabPos.notes.length; ll++) {
+          var curNote = tabPos.notes[ll];
+
+          if (curNote.graces) {
+            for (var mm = 0; mm < curNote.graces.length; mm++) {
+              var defGrace = {
+                el_type: "note",
+                startChar: absChild.abcelem.startChar,
+                endChar: absChild.abcelem.endChar,
+                notes: [],
+                grace: true
+              };
+              var graceX = getXGrace(absChild, mm);
+              var curGrace = curNote.graces[mm];
+              var tabGraceRelative = buildRelativeTabNote(plugin, graceX, defGrace, curGrace, true);
+              abs.children.push(tabGraceRelative);
+              tabVoice.push(defGrace);
+            }
+          }
+
+          var tabNoteRelative = buildRelativeTabNote(plugin, abs.x + absChild.heads[ll].dx, defNote, curNote, false);
+          abs.children.push(tabNoteRelative);
+        }
+
+        defNote.abselem = abs;
+        tabVoice.push(defNote);
+        dest.children.push(abs);
+        break;
+    }
+  }
+};
+
+module.exports = TabAbsoluteElements;
+
+/***/ }),
+
+/***/ "./src/tablatures/tab-common.js":
+/*!**************************************!*\
+  !*** ./src/tablatures/tab-common.js ***!
+  \**************************************/
+/***/ (function(module) {
+
+/**
+ *
+ * Common Class/Method available for all instruments
+ *
+ */
+function TabCommon(abcTune, tuneNumber, params) {
+  this.tune = abcTune;
+  this.params = params;
+  this.tuneNumber = tuneNumber;
+  this.inError = false;
+}
+
+TabCommon.prototype.setError = function (error) {
+  var tune = this.tune;
+
+  if (error) {
+    this.error = error;
+    this.inError = true;
+
+    if (tune.warnings) {
+      tune.warnings.push(error);
+    } else {
+      tune.warnings = [error];
+    }
+  }
+};
+
+module.exports = TabCommon;
+
+/***/ }),
+
+/***/ "./src/tablatures/tab-renderer.js":
+/*!****************************************!*\
+  !*** ./src/tablatures/tab-renderer.js ***!
+  \****************************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+/* eslint-disable no-debugger */
+var VoiceElement = __webpack_require__(/*! ../write/abc_voice_element */ "./src/write/abc_voice_element.js");
+
+var TabAbsoluteElements = __webpack_require__(/*! ./tab-absolute-elements */ "./src/tablatures/tab-absolute-elements.js");
+
+var spacing = __webpack_require__(/*! ../write/abc_spacing */ "./src/write/abc_spacing.js");
+
+function initSpecialY() {
+  return {
+    tempoHeightAbove: 0,
+    partHeightAbove: 0,
+    volumeHeightAbove: 0,
+    dynamicHeightAbove: 0,
+    endingHeightAbove: 0,
+    chordHeightAbove: 0,
+    lyricHeightAbove: 0,
+    lyricHeightBelow: 0,
+    chordHeightBelow: 0,
+    volumeHeightBelow: 0,
+    dynamicHeightBelow: 0
+  };
+}
+
+function getLyricHeight(voice) {
+  var maxLyricHeight = 0;
+
+  for (var ii = 0; ii < voice.children.length; ii++) {
+    var curAbs = voice.children[ii];
+
+    if (curAbs.specialY) {
+      if (curAbs.specialY.lyricHeightBelow > maxLyricHeight) {
+        maxLyricHeight = curAbs.specialY.lyricHeightBelow;
+      }
+    }
+  }
+
+  return maxLyricHeight; // add spacing
+}
+
+function buildTabName(self, dest) {
+  var stringSemantics = self.plugin.semantics.strings;
+  var controller = self.renderer.controller;
+  var textSize = controller.getTextSize;
+  var tabName = stringSemantics.tabInfos(self.plugin);
+  var size = textSize.calc(tabName, 'tablabelfont', 'text instrumentname');
+  dest.tabNameInfos = {
+    textSize: size,
+    name: tabName
+  };
+  return size.height;
+}
+/**
+ * Laying out tabs
+ * @param {*} renderer
+ * @param {*} line
+ * @param {*} staffIndex
+ * @param {*} tablatureLayout
+ */
+
+
+function TabRenderer(plugin, renderer, line, staffIndex) {
+  this.renderer = renderer;
+  this.plugin = plugin;
+  this.line = line;
+  this.absolutes = new TabAbsoluteElements();
+  this.staffIndex = staffIndex;
+  this.tabStaff = {
+    clef: {
+      type: 'TAB'
+    }
+  };
+  this.tabSize = plugin.linePitch * plugin.nbLines;
+}
+
+function islastTabInStaff(index, staffGroup) {
+  if (staffGroup[index].isTabStaff) {
+    if (index === staffGroup.length - 1) return true;
+
+    if (staffGroup[index + 1].isTabStaff) {
+      return false;
+    } else {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getStaffNumbers(staffs) {
+  var nbStaffs = 0;
+
+  for (var ii = 0; ii < staffs.length; ii++) {
+    if (!staffs[ii].isTabStaff) {
+      nbStaffs++;
+    }
+  }
+
+  return nbStaffs;
+}
+
+function getParentStaffIndex(staffs, index) {
+  for (var ii = index; ii >= 0; ii--) {
+    if (!staffs[ii].isTabStaff) {
+      return ii;
+    }
+  }
+
+  return -1;
+}
+
+function linkStaffAndTabs(staffs) {
+  for (var ii = 0; ii < staffs.length; ii++) {
+    if (staffs[ii].isTabStaff) {
+      // link to parent staff
+      var parentIndex = getParentStaffIndex(staffs, ii);
+      staffs[ii].hasStaff = staffs[parentIndex];
+      if (!staffs[parentIndex].hasTab) staffs[parentIndex].hasTab = [];
+      staffs[parentIndex].hasTab.push(staffs[ii]);
+    }
+  }
+}
+
+function isMultiVoiceSingleStaff(staffs, parent) {
+  if (getStaffNumbers(staffs) === 1) {
+    if (parent.voices.length > 1) return true;
+  }
+
+  return false;
+}
+
+function getNextTabPos(self, staffGroup) {
+  var tabIndex = self.staffIndex;
+  var startIndex = 0;
+  var handledVoices = 0;
+  var inProgress = true;
+  var nbVoices = 0;
+
+  while (inProgress) {
+    //for (var ii = 0; ii < staffGroup.length; ii++) {
+    if (!staffGroup[startIndex]) return -1;
+
+    if (!staffGroup[startIndex].isTabStaff) {
+      nbVoices = staffGroup[startIndex].voices.length; // get number of staff voices
+    }
+
+    if (staffGroup[startIndex].isTabStaff) {
+      handledVoices++;
+
+      if (islastTabInStaff(startIndex, staffGroup)) {
+        if (handledVoices < nbVoices) return startIndex + 1;
+      }
+    } else {
+      handledVoices = 0;
+
+      if (startIndex >= tabIndex) {
+        if (startIndex + 1 == staffGroup.length) return startIndex + 1;
+        if (!staffGroup[startIndex + 1].isTabStaff) return startIndex + 1;
+      }
+    }
+
+    startIndex++; // out of space case
+
+    if (startIndex > staffGroup.length) return -1;
+  }
+}
+
+function getLastStaff(staffs, lastTab) {
+  for (var ii = lastTab; ii >= 0; ii--) {
+    if (!staffs[ii].isTabStaff) {
+      return staffs[ii];
+    }
+  }
+
+  return null;
+}
+
+function checkVoiceKeySig(voices, ii) {
+  var curVoice = voices[ii]; // on multivoice multistaff only the first voice has key signature
+  // folling consecutive do not have one => we should provide the first voice key sig back then
+
+  var elem0 = curVoice.children[0].abcelem;
+  if (elem0.el_type === 'clef') return null;
+
+  if (ii == 0) {
+    // not found => clef=none case
+    return 'none';
+  }
+
+  return voices[ii - 1].children[0];
+}
+
+TabRenderer.prototype.doLayout = function () {
+  var staffs = this.line.staff;
+
+  if (staffs) {
+    // give up on staffline=0 in key 
+    var firstStaff = staffs[0];
+
+    if (firstStaff) {
+      if (firstStaff.clef) {
+        if (firstStaff.clef.stafflines == 0) {
+          this.plugin._super.setError("No tablatures when stafflines=0");
+
+          return;
+        }
+      }
+    }
+
+    staffs.splice(staffs.length, 0, this.tabStaff);
+  }
+
+  var staffGroup = this.line.staffGroup;
+  var voices = staffGroup.voices;
+  var firstVoice = voices[0]; // take lyrics into account if any
+
+  var lyricsHeight = getLyricHeight(firstVoice);
+  var padd = 3;
+  var prevIndex = this.staffIndex;
+  var previousStaff = staffGroup.staffs[prevIndex];
+  var tabTop = previousStaff.top + padd + lyricsHeight;
+
+  if (previousStaff.isTabStaff) {
+    tabTop = previousStaff.top;
+  }
+
+  var staffGroupInfos = {
+    bottom: -1,
+    isTabStaff: true,
+    specialY: initSpecialY(),
+    lines: this.plugin.nbLines,
+    linePitch: this.plugin.linePitch,
+    dy: 0.15,
+    top: tabTop
+  };
+  var nextTabPos = getNextTabPos(this, staffGroup.staffs);
+  if (nextTabPos === -1) return;
+  staffGroupInfos.parentIndex = nextTabPos - 1;
+  staffGroup.staffs.splice(nextTabPos, 0, staffGroupInfos); // staffGroup.staffs.push(staffGroupInfos);
+
+  staffGroup.height += this.tabSize + padd;
+  var parentStaff = getLastStaff(staffGroup.staffs, nextTabPos);
+  var nbVoices = 1;
+
+  if (isMultiVoiceSingleStaff(staffGroup.staffs, parentStaff)) {
+    nbVoices = parentStaff.voices.length;
+  } // build from staff
+
+
+  this.tabStaff.voices = [];
+
+  for (var ii = 0; ii < nbVoices; ii++) {
+    var tabVoice = new VoiceElement(0, 0);
+    var nameHeight = buildTabName(this, tabVoice) / spacing.STEP;
+    staffGroup.staffs[this.staffIndex].top += nameHeight;
+    staffGroup.height += nameHeight * spacing.STEP;
+    tabVoice.staff = staffGroupInfos;
+    voices.splice(voices.length, 0, tabVoice);
+    var keySig = checkVoiceKeySig(voices, ii + this.staffIndex);
+    this.tabStaff.voices[ii] = [];
+    this.absolutes.build(this.plugin, voices, this.tabStaff.voices[ii], ii, this.staffIndex, keySig);
+  }
+
+  linkStaffAndTabs(staffGroup.staffs); // crossreference tabs and staff
+};
+
+module.exports = TabRenderer;
+
+/***/ }),
+
+/***/ "./src/tablatures/transposer.js":
+/*!**************************************!*\
+  !*** ./src/tablatures/transposer.js ***!
+  \**************************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+/**
+ *
+ * generic transposer
+ *
+ */
+var TabNote = __webpack_require__(/*! ./instruments/tab-note */ "./src/tablatures/instruments/tab-note.js");
+
+function buildAccEquiv(acc, note) {
+  var equiv = note.getAccidentalEquiv();
+
+  if (acc.note.toUpperCase() == equiv.name.toUpperCase()) {
+    equiv.isSharp = false;
+    equiv.isFlat = false;
+    return equiv;
+  }
+
+  return note;
+}
+
+function adjustNoteToKey(acc, note) {
+  if (acc.acc == 'sharp') {
+    if (note.isFlat) {
+      return buildAccEquiv(acc, note);
+    } else if (note.isSharp) {
+      if (acc.note.toUpperCase() == note.name.toUpperCase()) {
+        note.isSharp = false;
+        note.isKeySharp = true;
+      } else {
+        if (acc.note.toUpperCase() == note.name.toUpperCase()) {
+          note.natural = true;
+        }
+      }
+    }
+  } else if (acc.acc == 'flat') {
+    if (note.isSharp) {
+      return buildAccEquiv(acc, note);
+    } else if (note.isFlat) {
+      if (acc.note.toUpperCase() == note.name.toUpperCase()) {
+        note.isFlat = false;
+        note.isKeyFlat = true;
+      }
+    } else {
+      if (acc.note.toUpperCase() == note.name.toUpperCase()) {
+        note.natural = true;
+      }
+    }
+  }
+
+  return note;
+}
+
+function replaceNote(self, newNote, start, end) {
+  if (self.lastEnd) {
+    while (start > self.lastEnd) {
+      self.updatedSrc.push(self.abcSrc[self.lastEnd]);
+      self.lastEnd++;
+    }
+  }
+
+  var nNote = newNote.split('');
+
+  for (var ii = 0; ii < nNote.length; ii++) {
+    self.updatedSrc.push(nNote[ii]);
+  }
+
+  var curPos = start + ii;
+
+  while (end >= curPos) {
+    self.updatedSrc.push(nNote[curPos]);
+    curPos++;
+  }
+
+  self.lastEnd = end;
+}
+
+function checkKeys(self, note) {
+  var accs = self.transposedKey;
+
+  for (var ii = 0; ii < accs.length; ii++) {
+    note = adjustNoteToKey(accs[ii], note);
+  }
+
+  return note;
+}
+
+Transposer.prototype.transposeNote = function (note) {
+  var returned = note;
+  var curNote = new TabNote.TabNote(returned.name);
+
+  if (this.transposeBy > 0) {
+    for (var ii = 0; ii < this.transposeBy; ii++) {
+      curNote = checkKeys(this, curNote.nextNote());
+    }
+  } else if (this.transposeBy < 0) {
+    for (var jj = this.transposeBy; jj < 0; jj++) {
+      curNote = checkKeys(this, curNote.prevNote());
+    }
+  }
+
+  returned.name = curNote.emit();
+  return returned;
+};
+
+Transposer.prototype.upgradeSource = function (note, startChar, endChar) {
+  var n = new TabNote.TabNote(note.name);
+  var newNote = n.emit();
+  replaceNote(this, newNote, startChar, endChar - 1);
+};
+
+function Transposer(transposedKey, transposeBy) {
+  this.transposeBy = transposeBy;
+  this.transposedKey = transposedKey;
+  this.lastEnd = this.kEnd + 1;
+}
+
+module.exports = Transposer;
+
+/***/ }),
+
 /***/ "./src/write/abc_absolute_element.js":
 /*!*******************************************!*\
   !*** ./src/write/abc_absolute_element.js ***!
@@ -16429,9 +19297,10 @@ AbsoluteElement.prototype.addRight = function (right) {
 
   if (right.bottom !== undefined) {
     if (this.fixed.b === undefined) this.fixed.b = right.bottom;else this.fixed.b = Math.min(this.fixed.b, right.bottom);
-  }
+  } // if (isNaN(this.fixed.t) || isNaN(this.fixed.b))
+  // 	debugger;
 
-  if (isNaN(this.fixed.t) || isNaN(this.fixed.b)) debugger;
+
   if (right.dx + right.w > this.w) this.w = right.dx + right.w;
   this.right[this.right.length] = right;
 
@@ -16688,6 +19557,8 @@ var AbstractEngraver = function AbstractEngraver(getTextSize, tuneNumber, option
   this.flatBeams = options.flatbeams;
   this.graceSlurs = options.graceSlurs;
   this.percmap = options.percmap;
+  this.initialClef = options.initialClef;
+  this.jazzchords = !!options.jazzchords;
   this.reset();
 };
 
@@ -16750,7 +19621,7 @@ AbstractEngraver.prototype.containsLyrics = function (staves) {
   }
 };
 
-AbstractEngraver.prototype.createABCLine = function (staffs, tempo) {
+AbstractEngraver.prototype.createABCLine = function (staffs, tempo, l) {
   this.minY = 2; // PER: This will be the lowest that any note reaches. It will be used to set the dynamics row.
   // See if there are any lyrics on this line.
 
@@ -16761,13 +19632,13 @@ AbstractEngraver.prototype.createABCLine = function (staffs, tempo) {
   for (var s = 0; s < staffs.length; s++) {
     if (hint) this.restoreState();
     hint = false;
-    this.createABCStaff(staffgroup, staffs[s], tempo, s);
+    this.createABCStaff(staffgroup, staffs[s], tempo, s, l);
   }
 
   return staffgroup;
 };
 
-AbstractEngraver.prototype.createABCStaff = function (staffgroup, abcstaff, tempo, s) {
+AbstractEngraver.prototype.createABCStaff = function (staffgroup, abcstaff, tempo, s, l) {
   // If the tempo is passed in, then the first element should get the tempo attached to it.
   staffgroup.getTextSize.updateFonts(abcstaff);
 
@@ -16787,7 +19658,7 @@ AbstractEngraver.prototype.createABCStaff = function (staffgroup, abcstaff, temp
     }
 
     if (abcstaff.clef && abcstaff.clef.type === "perc") voice.isPercussion = true;
-    var clef = createClef(abcstaff.clef, this.tuneNumber);
+    var clef = (!this.initialClef || l === 0) && createClef(abcstaff.clef, this.tuneNumber);
 
     if (clef) {
       if (v === 0 && abcstaff.barNumber) {
@@ -17080,6 +19951,15 @@ AbstractEngraver.prototype.createBeam = function (isSingleLineStaff, voice, elem
   if (hint) beamelem.setHint();
 
   for (var i = 0; i < elems.length; i++) {
+    // Do a first pass to figure out the stem direction before creating the notes, so that staccatos and other decorations can be placed correctly.
+    beamelem.runningDirection(elems[i]);
+  }
+
+  beamelem.setStemDirection();
+  var tempStemDir = this.stemdir;
+  this.stemdir = beamelem.stemsUp ? 'up' : 'down';
+
+  for (i = 0; i < elems.length; i++) {
     var elem = elems[i];
     var abselem = this.createNote(elem, true, isSingleLineStaff, voice);
     abselemset.push(abselem);
@@ -17094,6 +19974,7 @@ AbstractEngraver.prototype.createBeam = function (isSingleLineStaff, voice, elem
 
   beamelem.calcDir();
   voice.addBeam(beamelem);
+  this.stemdir = tempStemDir;
   return abselemset;
 };
 
@@ -17307,7 +20188,7 @@ function addRestToAbsElement(abselem, elem, duration, dot, isMultiVoice, stemdir
       abselem.addExtra(numMeasures);
   }
 
-  if (elem.rest.type.indexOf("multimeasure") < 0) {
+  if (elem.rest.type.indexOf("multimeasure") < 0 && elem.rest.type !== "invisible") {
     var ret = createNoteHead(abselem, c, {
       verticalPos: restpitch
     }, {
@@ -17485,14 +20366,15 @@ AbstractEngraver.prototype.addNoteToAbcElement = function (abselem, elem, dot, s
     var dx = dir === "down" || abselem.heads.length === 0 ? 0 : abselem.heads[0].w;
     var width = dir === "down" ? 1 : -1; // TODO-PER-HACK: One type of note head has a different placement of the stem. This should be more generically calculated:
 
-    if (noteHead.c === 'noteheads.slash.quarter') {
+    if (noteHead && noteHead.c === 'noteheads.slash.quarter') {
       if (dir === 'down') p2 -= 1;else p1 += 1;
     }
 
     abselem.addRight(new RelativeElement(null, dx, 0, p1, {
       "type": "stem",
       "pitch2": p2,
-      linewidth: width
+      linewidth: width,
+      bottom: p1 - 1
     })); //var RelativeElement = function RelativeElement(c, dx, w, pitch, opt) {
 
     min = Math.min(p1, p2);
@@ -17607,7 +20489,7 @@ AbstractEngraver.prototype.createNote = function (elem, nostem, isSingleLineStaf
   ledgerLines(abselem, elem.minpitch, elem.maxpitch, elem.rest, symbolWidth, additionalLedgers, dir, -2, 1);
 
   if (elem.chord !== undefined) {
-    var ret3 = addChord(this.getTextSize, abselem, elem, roomtaken, roomtakenright, symbolWidth);
+    var ret3 = addChord(this.getTextSize, abselem, elem, roomtaken, roomtakenright, symbolWidth, this.jazzchords);
     roomtaken = ret3.roomTaken;
     roomtakenright = ret3.roomTakenRight;
   }
@@ -17638,6 +20520,7 @@ AbstractEngraver.prototype.addSlursAndTies = function (abselem, pitchelem, noteh
       for (var j = 0; j < this.ties.length; j++) {
         if (this.ties[j].anchor1 && this.ties[j].anchor1.pitch === notehead.pitch) {
           this.ties[j].setEndAnchor(notehead);
+          voice.setRange(this.ties[j]);
           this.ties.splice(j, 1);
           found = true;
           break;
@@ -17646,6 +20529,7 @@ AbstractEngraver.prototype.addSlursAndTies = function (abselem, pitchelem, noteh
 
       if (!found) {
         this.ties[0].setEndAnchor(notehead);
+        voice.setRange(this.ties[0]);
         this.ties.splice(0, 1);
       }
     }
@@ -17681,6 +20565,7 @@ AbstractEngraver.prototype.addSlursAndTies = function (abselem, pitchelem, noteh
       if (this.slurs[slurid]) {
         slur = this.slurs[slurid];
         slur.setEndAnchor(notehead);
+        voice.setRange(slur);
         delete this.slurs[slurid];
       } else {
         slur = new TieElem({
@@ -17835,6 +20720,11 @@ AbstractEngraver.prototype.createBarLine = function (voice, elem, isFirstStaff) 
 
 
   abselem.extraw -= 5;
+
+  if (elem.chord !== undefined) {
+    var ret3 = addChord(this.getTextSize, abselem, elem, 0, 0, 0, false);
+  }
+
   return abselem;
 };
 
@@ -17893,6 +20783,15 @@ BeamElem.prototype.setHint = function () {
   this.hint = true;
 };
 
+BeamElem.prototype.runningDirection = function (abcelem) {
+  var pitch = abcelem.averagepitch;
+  if (pitch === undefined) return; // don't include elements like spacers in beams
+
+  this.total = Math.round(this.total + pitch);
+  if (!this.count) this.count = 0;
+  this.count++;
+};
+
 BeamElem.prototype.add = function (abselem) {
   var pitch = abselem.abcelem.averagepitch;
   if (pitch === undefined) return; // don't include elements like spacers in beams
@@ -17913,6 +20812,24 @@ BeamElem.prototype.add = function (abselem) {
 
 BeamElem.prototype.addBeam = function (beam) {
   this.beams.push(beam);
+};
+
+BeamElem.prototype.setStemDirection = function () {
+  // Have to figure this out before the notes are placed because placing the notes also places the decorations.
+  this.average = calcAverage(this.total, this.count);
+
+  if (this.forceup) {
+    this.stemsUp = true;
+  } else if (this.forcedown) {
+    this.stemsUp = false;
+  } else {
+    var middleLine = 6; // hardcoded 6 is B
+
+    this.stemsUp = this.average < middleLine; // true is up, false is down;
+  }
+
+  delete this.count;
+  this.total = 0;
 };
 
 BeamElem.prototype.calcDir = function () {
@@ -18152,6 +21069,7 @@ var RelativeElement = __webpack_require__(/*! ./abc_relative_element */ "./src/w
 var parseCommon = __webpack_require__(/*! ../parse/abc_common */ "./src/parse/abc_common.js");
 
 var createKeySignature = function createKeySignature(elem, tuneNumber) {
+  elem.el_type = "keySignature";
   if (!elem.accidentals || elem.accidentals.length === 0) return null;
   var abselem = new AbsoluteElement(elem, 0, 10, 'staff-extra key-signature', tuneNumber);
   abselem.isKeySig = true;
@@ -18246,7 +21164,8 @@ var createNoteHead = function createNoteHead(abselem, c, pitchelem, options) {
     var opts = {
       scalex: scale,
       scaley: scale,
-      thickness: glyphs.symbolHeightInPitches(c) * scale
+      thickness: glyphs.symbolHeightInPitches(c) * scale,
+      name: pitchelem.name
     };
     notehead = new RelativeElement(c, shiftheadx, glyphs.getSymbolWidth(c) * scale, pitch, opts);
     notehead.stemDir = dir;
@@ -18480,6 +21399,8 @@ module.exports = CrescendoElem;
 var DynamicDecoration = __webpack_require__(/*! ./abc_dynamic_decoration */ "./src/write/abc_dynamic_decoration.js");
 
 var CrescendoElem = __webpack_require__(/*! ./abc_crescendo_element */ "./src/write/abc_crescendo_element.js");
+
+var GlissandoElem = __webpack_require__(/*! ./abc_glissando_element */ "./src/write/abc_glissando_element.js");
 
 var glyphs = __webpack_require__(/*! ./abc_glyphs */ "./src/write/abc_glyphs.js");
 
@@ -18797,6 +21718,7 @@ function leftDecoration(decoration, abselem, roomtaken) {
 Decoration.prototype.dynamicDecoration = function (voice, decoration, abselem, positioning) {
   var diminuendo;
   var crescendo;
+  var glissando;
 
   for (var i = 0; i < decoration.length; i++) {
     switch (decoration[i]) {
@@ -18825,6 +21747,19 @@ Decoration.prototype.dynamicDecoration = function (voice, decoration, abselem, p
         };
         this.startCrescendoX = undefined;
         break;
+
+      case "glissando(":
+        this.startGlissandoX = abselem;
+        glissando = undefined;
+        break;
+
+      case "glissando)":
+        glissando = {
+          start: this.startGlissandoX,
+          stop: abselem
+        };
+        this.startGlissandoX = undefined;
+        break;
     }
   }
 
@@ -18834,6 +21769,10 @@ Decoration.prototype.dynamicDecoration = function (voice, decoration, abselem, p
 
   if (crescendo) {
     voice.addOther(new CrescendoElem(crescendo.start, crescendo.stop, "<", positioning));
+  }
+
+  if (glissando) {
+    voice.addOther(new GlissandoElem(glissando.start, glissando.stop));
   }
 };
 
@@ -18942,7 +21881,7 @@ var GetTextSize = __webpack_require__(/*! ./get-text-size */ "./src/write/get-te
 
 var draw = __webpack_require__(/*! ./draw/draw */ "./src/write/draw/draw.js");
 
-var calcHeight = __webpack_require__(/*! ./calcHeight */ "./src/write/calcHeight.js");
+var tablatures = __webpack_require__(/*! ../api/abc_tablatures */ "./src/api/abc_tablatures.js");
 /**
  * @class
  * Controls the engraving process, from ABCJS Abstract Syntax Tree (ABCJS AST) to rendered score sheet
@@ -18959,12 +21898,14 @@ var calcHeight = __webpack_require__(/*! ./calcHeight */ "./src/write/calcHeight
 
 var EngraverController = function EngraverController(paper, params) {
   params = params || {};
+  this.oneSvgPerLine = params.oneSvgPerLine;
   this.selectionColor = params.selectionColor;
   this.dragColor = params.dragColor ? params.dragColor : params.selectionColor;
   this.dragging = !!params.dragging;
   this.selectTypes = params.selectTypes;
   this.responsive = params.responsive;
   this.space = 3 * spacing.SPACE;
+  this.initialClef = params.initialClef;
   this.scale = params.scale ? parseFloat(params.scale) : 0;
   this.classes = new Classes({
     shouldAddClasses: params.add_classes
@@ -18987,10 +21928,11 @@ var EngraverController = function EngraverController(paper, params) {
   this.renderer = new Renderer(paper);
   this.renderer.setPaddingOverride(params);
   if (params.showDebug) this.renderer.showDebug = params.showDebug;
+  if (params.jazzchords) this.jazzchords = params.jazzchords;
   this.renderer.controller = this; // TODO-GD needed for highlighting
 
   this.renderer.foregroundColor = params.foregroundColor ? params.foregroundColor : "currentColor";
-  if (params.ariaLabel) this.renderer.ariaLabel = params.ariaLabel;
+  if (params.ariaLabel !== undefined) this.renderer.ariaLabel = params.ariaLabel;
   this.renderer.minPadding = params.minPadding ? params.minPadding : 0;
   this.reset();
 };
@@ -19014,7 +21956,7 @@ EngraverController.prototype.reset = function () {
  */
 
 
-EngraverController.prototype.engraveABC = function (abctunes, tuneNumber) {
+EngraverController.prototype.engraveABC = function (abctunes, tuneNumber, lineOffset) {
   if (abctunes[0] === undefined) {
     abctunes = [abctunes];
   }
@@ -19025,7 +21967,7 @@ EngraverController.prototype.engraveABC = function (abctunes, tuneNumber) {
     if (tuneNumber === undefined) tuneNumber = i;
     this.getFontAndAttr = new GetFontAndAttr(abctunes[i].formatting, this.classes);
     this.getTextSize = new GetTextSize(this.getFontAndAttr, this.renderer.paper);
-    this.engraveTune(abctunes[i], tuneNumber);
+    this.engraveTune(abctunes[i], tuneNumber, lineOffset);
   }
 };
 /**
@@ -19097,13 +22039,16 @@ EngraverController.prototype.getMeasureWidths = function (abcTune) {
 
 EngraverController.prototype.setupTune = function (abcTune, tuneNumber) {
   this.classes.reset();
+  if (abcTune.formatting.jazzchords !== undefined) this.jazzchords = abcTune.formatting.jazzchords;
   this.renderer.newTune(abcTune);
   this.engraver = new AbstractEngraver(this.getTextSize, tuneNumber, {
     bagpipes: abcTune.formatting.bagpipes,
     flatbeams: abcTune.formatting.flatbeams,
     graceSlurs: abcTune.formatting.graceSlurs !== false,
     // undefined is the default, which is true
-    percmap: abcTune.formatting.percmap
+    percmap: abcTune.formatting.percmap,
+    initialClef: this.initialClef,
+    jazzchords: this.jazzchords
   });
   this.engraver.setStemHeight(this.renderer.spacing.stemHeight);
   this.engraver.measureLength = abcTune.getMeterFraction().num / abcTune.getMeterFraction().den;
@@ -19123,7 +22068,7 @@ EngraverController.prototype.setupTune = function (abcTune, tuneNumber) {
 };
 
 EngraverController.prototype.constructTuneElements = function (abcTune) {
-  abcTune.topText = new TopText(abcTune.metaText, abcTune.formatting, abcTune.lines, this.width, this.renderer.isPrint, this.renderer.padding.left, this.renderer.spacing, this.getTextSize); // Generate the raw staff line data
+  abcTune.topText = new TopText(abcTune.metaText, abcTune.metaTextInfo, abcTune.formatting, abcTune.lines, this.width, this.renderer.isPrint, this.renderer.padding.left, this.renderer.spacing, this.getTextSize); // Generate the raw staff line data
 
   var i;
   var abcLine;
@@ -19135,7 +22080,7 @@ EngraverController.prototype.constructTuneElements = function (abcTune) {
 
     if (abcLine.staff) {
       hasSeenNonSubtitle = true;
-      abcLine.staffGroup = this.engraver.createABCLine(abcLine.staff, !hasPrintedTempo ? abcTune.metaText.tempo : null);
+      abcLine.staffGroup = this.engraver.createABCLine(abcLine.staff, !hasPrintedTempo ? abcTune.metaText.tempo : null, i);
       hasPrintedTempo = true;
     } else if (abcLine.subtitle) {
       // If the subtitle is at the top, then it was already accounted for. So skip all subtitles until the first non-subtitle line.
@@ -19155,18 +22100,93 @@ EngraverController.prototype.constructTuneElements = function (abcTune) {
   abcTune.bottomText = new BottomText(abcTune.metaText, this.width, this.renderer.isPrint, this.renderer.padding.left, this.renderer.spacing, this.getTextSize);
 };
 
-EngraverController.prototype.engraveTune = function (abcTune, tuneNumber) {
+EngraverController.prototype.engraveTune = function (abcTune, tuneNumber, lineOffset) {
   var scale = this.setupTune(abcTune, tuneNumber); // Create all of the element objects that will appear on the page.
 
   this.constructTuneElements(abcTune); // Do all the positioning, both horizontally and vertically
 
-  var maxWidth = layout(this.renderer, abcTune, this.width, this.space); // Do all the writing to the SVG
+  var maxWidth = layout(this.renderer, abcTune, this.width, this.space); // Deal with tablature for staff
 
-  var ret = draw(this.renderer, this.classes, abcTune, this.width, maxWidth, this.responsive, scale, this.selectTypes, tuneNumber);
+  if (abcTune.tablatures) {
+    tablatures.layoutTablatures(this.renderer, abcTune);
+  } // Do all the writing to the SVG
+
+
+  var ret = draw(this.renderer, this.classes, abcTune, this.width, maxWidth, this.responsive, scale, this.selectTypes, tuneNumber, lineOffset);
   this.staffgroups = ret.staffgroups;
   this.selectables = ret.selectables;
-  setupSelection(this);
+
+  if (this.oneSvgPerLine) {
+    var div = this.renderer.paper.svg.parentNode;
+    this.svgs = splitSvgIntoLines(div, abcTune.metaText.title);
+  } else {
+    this.svgs = [this.renderer.paper.svg];
+  }
+
+  setupSelection(this, this.svgs);
 };
+
+function splitSvgIntoLines(output, title) {
+  // Each line is a top level <g> in the svg. To split it into separate
+  // svgs iterate through each of those and put them in a new svg. Since
+  // they are placed absolutely, the viewBox needs to be manipulated to
+  // get the correct vertical positioning.
+  // We copy all the attributes from the original svg except for the aria-label
+  // since we want that to include a count. And the height is now a fraction of the original svg.
+  if (!title) title = "Untitled";
+  var source = output.querySelector("svg");
+  var style = source.querySelector("style");
+  var width = source.getAttribute("width");
+  var sections = output.querySelectorAll("svg > g"); // each section is a line, or the top matter or the bottom matter, or text that has been inserted.
+
+  var nextTop = 0; // There are often gaps between the elements for spacing, so the actual top and height needs to be inferred.
+
+  var wrappers = []; // Create all the elements and place them at once because we use the current svg to get data. It would disappear after placing the first line.
+
+  var svgs = [];
+
+  for (var i = 0; i < sections.length; i++) {
+    var section = sections[i];
+    var box = section.getBBox();
+    var gapBetweenLines = box.y - nextTop; // take the margin into account
+
+    var height = box.height + gapBetweenLines;
+    var wrapper = document.createElement("div");
+    wrapper.setAttribute("style", "overflow: hidden;height:" + height + "px;");
+    var svg = duplicateSvg(source);
+    var fullTitle = "Sheet Music for \"" + title + "\" section " + (i + 1);
+    svg.setAttribute("aria-label", fullTitle);
+    svg.setAttribute("height", height);
+    svg.setAttribute("viewBox", "0 " + nextTop + " " + width + " " + height);
+    svg.appendChild(style.cloneNode(true));
+    var titleEl = document.createElement("title");
+    titleEl.innerText = fullTitle;
+    svg.appendChild(titleEl);
+    svg.appendChild(section);
+    wrapper.appendChild(svg);
+    svgs.push(svg);
+    output.appendChild(wrapper); //wrappers.push(wrapper)
+
+    nextTop = box.y + box.height;
+  } // for (i = 0; i < wrappers.length; i++)
+  // 	output.appendChild(wrappers[i])
+
+
+  output.removeChild(source);
+  return svgs;
+}
+
+function duplicateSvg(source) {
+  var svgNS = "http://www.w3.org/2000/svg";
+  var svg = document.createElementNS(svgNS, "svg");
+
+  for (var i = 0; i < source.attributes.length; i++) {
+    var attr = source.attributes[i];
+    if (attr.name !== "height" && attr.name != "aria-label") svg.setAttribute(attr.name, attr.value);
+  }
+
+  return svg;
+}
 
 EngraverController.prototype.getDim = function (historyEl) {
   // Get the dimensions on demand because the getBBox call is expensive.
@@ -19188,6 +22208,23 @@ EngraverController.prototype.addSelectListener = function (clickListener) {
 };
 
 module.exports = EngraverController;
+
+/***/ }),
+
+/***/ "./src/write/abc_glissando_element.js":
+/*!********************************************!*\
+  !*** ./src/write/abc_glissando_element.js ***!
+  \********************************************/
+/***/ (function(module) {
+
+var GlissandoElem = function GlissandoElem(anchor1, anchor2) {
+  this.type = "GlissandoElem";
+  this.anchor1 = anchor1; // must have a .x and a .parent property or be null (means starts at the "beginning" of the line - after keysig)
+
+  this.anchor2 = anchor2; // must have a .x property or be null (means ends at the end of the line)
+};
+
+module.exports = GlissandoElem;
 
 /***/ }),
 
@@ -19534,6 +22571,16 @@ var glyphs = {
     w: 21,
     h: 14.97
   },
+  'tab.big': {
+    d: [['M', 20.16, -21.66], ['c', 0.24, -0.09, 0.66, 0.09, 0.78, 0.36], ['c', 0.09, 0.21, 0.09, 0.24, -0.18, 0.54], ['c', -0.78, 0.81, -1.86, 1.44, -2.94, 1.71], ['c', -0.87, 0.24, -1.71, 0.24, -2.55, 0.03], ['l', -0.06, -0.03], ['l', -0.18, 0.99], ['c', -0.33, 1.98, -0.75, 4.26, -0.96, 5.04], ['c', -0.42, 1.65, -1.26, 3.18, -2.28, 4.14], ['c', -0.57, 0.57, -1.17, 0.90, -1.86, 1.08], ['c', -0.18, 0.06, -0.33, 0.06, -0.66, 0.06], ['c', -0.54, 0.00, -0.78, -0.03, -1.23, -0.27], ['c', -0.39, -0.18, -0.66, -0.39, -1.38, -0.99], ['c', -0.30, -0.24, -0.66, -0.51, -0.75, -0.57], ['c', -0.21, -0.15, -0.27, -0.24, -0.24, -0.45], ['c', 0.06, -0.27, 0.36, -0.60, 0.60, -0.66], ['c', 0.18, -0.03, 0.33, 0.06, 0.90, 0.57], ['c', 0.48, 0.42, 0.72, 0.57, 0.93, 0.69], ['c', 0.66, 0.33, 1.38, 0.21, 1.95, -0.36], ['c', 0.63, -0.60, 1.05, -1.62, 1.23, -3.00], ['c', 0.03, -0.18, 0.09, -0.66, 0.09, -1.11], ['c', 0.09, -1.56, 0.33, -3.81, 0.57, -5.49], ['c', 0.06, -0.33, 0.09, -0.63, 0.09, -0.63], ['c', -0.03, -0.03, -0.81, -0.12, -1.02, -0.12], ['c', -0.57, 0.00, -1.32, 0.12, -1.80, 0.33], ['c', -0.87, 0.30, -1.35, 0.78, -1.50, 1.41], ['c', -0.18, 0.63, 0.09, 1.26, 0.66, 1.65], ['c', 0.12, 0.06, 0.15, 0.12, 0.18, 0.24], ['c', 0.09, 0.27, 0.06, 0.57, -0.09, 0.75], ['c', -0.03, 0.06, -0.12, 0.09, -0.27, 0.15], ['c', -0.72, 0.21, -1.44, 0.15, -2.10, -0.18], ['c', -0.54, -0.27, -0.96, -0.66, -1.20, -1.14], ['c', -0.39, -0.75, -0.33, -1.74, 0.15, -2.52], ['c', 0.27, -0.42, 0.84, -0.93, 1.41, -1.23], ['c', 1.17, -0.57, 2.88, -0.90, 4.80, -0.90], ['c', 0.69, 0.00, 0.78, 0.00, 1.08, 0.06], ['c', 0.45, 0.09, 1.11, 0.30, 2.07, 0.60], ['c', 1.47, 0.48, 1.83, 0.57, 2.55, 0.54], ['c', 1.02, -0.06, 2.04, -0.45, 2.94, -1.11], ['c', 0.12, -0.09, 0.24, -0.18, 0.27, -0.18], ['z'], ['m', -5.88, 13.05], ['c', 0.21, -0.03, 0.81, 0.00, 1.08, 0.06], ['c', 0.48, 0.12, 0.90, 0.42, 0.99, 0.69], ['c', 0.03, 0.09, 0.03, 0.15, 0.00, 0.27], ['c', 0.00, 0.09, -0.03, 0.57, -0.06, 1.08], ['c', -0.09, 2.19, -0.24, 5.76, -0.39, 8.28], ['c', -0.06, 1.53, -0.06, 1.77, 0.03, 2.01], ['c', 0.09, 0.18, 0.15, 0.24, 0.30, 0.30], ['c', 0.24, 0.12, 0.54, 0.06, 1.23, -0.27], ['c', 0.57, -0.27, 0.66, -0.30, 0.75, -0.24], ['c', 0.09, 0.06, 0.18, 0.30, 0.18, 0.45], ['c', 0.00, 0.33, -0.15, 0.51, -0.45, 0.63], ['c', -0.12, 0.03, -0.39, 0.15, -0.60, 0.27], ['c', -1.17, 0.60, -1.38, 0.69, -1.80, 0.72], ['c', -0.45, 0.03, -0.78, -0.09, -1.08, -0.39], ['c', -0.39, -0.42, -0.66, -1.20, -1.02, -3.12], ['c', -0.24, -1.23, -0.36, -2.07, -0.54, -3.75], ['l', 0.00, -0.18], ['l', -0.36, 0.45], ['c', -0.60, 0.75, -1.32, 1.59, -1.95, 2.25], ['c', -0.15, 0.18, -0.27, 0.30, -0.27, 0.33], ['c', 0.00, 0.00, 0.06, 0.09, 0.15, 0.18], ['c', 0.24, 0.33, 0.60, 0.57, 1.05, 0.69], ['c', 0.18, 0.06, 0.30, 0.06, 0.69, 0.06], ['l', 0.48, 0.03], ['l', 0.06, 0.12], ['c', 0.15, 0.27, 0.03, 0.72, -0.21, 0.90], ['c', -0.18, 0.12, -0.93, 0.27, -1.41, 0.27], ['c', -0.84, 0.00, -1.59, -0.30, -1.98, -0.84], ['l', -0.12, -0.15], ['l', -0.45, 0.42], ['c', -0.99, 0.87, -1.53, 1.32, -2.16, 1.74], ['c', -0.78, 0.51, -1.50, 0.84, -2.10, 0.93], ['c', -0.69, 0.12, -1.20, 0.03, -1.95, -0.42], ['c', -0.21, -0.12, -0.51, -0.27, -0.66, -0.36], ['c', -0.24, -0.12, -0.30, -0.18, -0.33, -0.24], ['c', -0.12, -0.27, 0.15, -0.78, 0.45, -0.93], ['c', 0.24, -0.12, 0.33, -0.09, 0.90, 0.18], ['c', 0.60, 0.30, 0.84, 0.39, 1.20, 0.36], ['c', 0.87, -0.09, 1.77, -0.69, 3.24, -2.31], ['c', 2.67, -2.85, 4.59, -5.94, 5.70, -9.15], ['c', 0.15, -0.45, 0.24, -0.63, 0.42, -0.81], ['c', 0.21, -0.24, 0.60, -0.45, 0.99, -0.51], ['z'], ['m', -3.99, 16.05], ['c', 0.18, 0.00, 0.69, -0.03, 1.17, 0.00], ['c', 3.27, 0.03, 5.37, 0.75, 6.00, 2.07], ['c', 0.45, 0.99, 0.12, 2.40, -0.81, 3.42], ['c', -0.24, 0.27, -0.57, 0.57, -0.84, 0.75], ['c', -0.09, 0.06, -0.18, 0.09, -0.18, 0.12], ['c', 0.00, 0.00, 0.18, 0.03, 0.42, 0.09], ['c', 1.23, 0.30, 2.01, 0.81, 2.37, 1.59], ['c', 0.27, 0.54, 0.30, 1.32, 0.09, 2.10], ['c', -0.12, 0.36, -0.45, 1.05, -0.69, 1.35], ['c', -0.87, 1.17, -2.10, 1.92, -3.54, 2.25], ['c', -0.36, 0.06, -0.48, 0.06, -0.96, 0.06], ['c', -0.45, 0.00, -0.66, 0.00, -0.84, -0.03], ['c', -0.84, -0.18, -1.47, -0.51, -2.07, -1.11], ['c', -0.33, -0.33, -0.45, -0.51, -0.45, -0.63], ['c', 0.00, -0.06, 0.03, -0.15, 0.06, -0.24], ['c', 0.18, -0.33, 0.69, -0.60, 0.93, -0.48], ['c', 0.03, 0.03, 0.15, 0.12, 0.27, 0.24], ['c', 0.39, 0.42, 0.99, 0.57, 1.62, 0.45], ['c', 1.05, -0.21, 1.98, -1.02, 2.31, -2.01], ['c', 0.48, -1.53, -0.48, -2.55, -2.58, -2.67], ['c', -0.21, 0.00, -0.36, -0.03, -0.42, -0.06], ['c', -0.15, -0.09, -0.21, -0.51, -0.06, -0.78], ['c', 0.12, -0.27, 0.24, -0.33, 0.60, -0.36], ['c', 0.57, -0.06, 1.11, -0.42, 1.50, -0.99], ['c', 0.48, -0.72, 0.54, -1.59, 0.18, -2.31], ['c', -0.12, -0.21, -0.45, -0.54, -0.69, -0.69], ['c', -0.33, -0.21, -0.93, -0.45, -1.35, -0.51], ['l', -0.12, -0.03], ['l', -0.06, 0.48], ['c', -0.54, 2.94, -1.14, 6.24, -1.29, 6.75], ['c', -0.33, 1.35, -0.93, 2.61, -1.65, 3.60], ['c', -0.30, 0.36, -0.81, 0.90, -1.14, 1.14], ['c', -0.30, 0.24, -0.84, 0.48, -1.14, 0.57], ['c', -0.33, 0.09, -0.96, 0.09, -1.26, 0.03], ['c', -0.45, -0.12, -0.87, -0.39, -1.53, -0.96], ['c', -0.24, -0.15, -0.51, -0.39, -0.63, -0.48], ['c', -0.30, -0.21, -0.33, -0.33, -0.21, -0.63], ['c', 0.12, -0.18, 0.27, -0.36, 0.42, -0.45], ['c', 0.27, -0.12, 0.36, -0.09, 0.87, 0.33], ['c', 0.78, 0.60, 1.08, 0.75, 1.65, 0.72], ['c', 0.45, -0.03, 0.81, -0.21, 1.17, -0.54], ['c', 0.87, -0.90, 1.38, -2.85, 1.38, -5.37], ['c', 0.00, -0.60, 0.03, -1.11, 0.12, -2.04], ['c', 0.06, -0.69, 0.24, -2.01, 0.33, -2.58], ['c', 0.06, -0.24, 0.06, -0.42, 0.06, -0.42], ['c', 0.00, 0.00, -0.12, 0.03, -0.21, 0.09], ['c', -1.44, 0.57, -2.16, 1.65, -1.74, 2.55], ['c', 0.09, 0.15, 0.18, 0.24, 0.27, 0.33], ['c', 0.24, 0.21, 0.30, 0.27, 0.33, 0.39], ['c', 0.06, 0.24, 0.00, 0.63, -0.15, 0.78], ['c', -0.09, 0.12, -0.54, 0.21, -0.96, 0.24], ['c', -1.02, 0.03, -2.01, -0.48, -2.43, -1.32], ['c', -0.21, -0.45, -0.27, -0.90, -0.15, -1.44], ['c', 0.06, -0.27, 0.21, -0.66, 0.39, -0.93], ['c', 0.87, -1.29, 3.00, -2.22, 5.64, -2.43], ['z']],
+    w: 19.643,
+    h: 43.325
+  },
+  'tab.tiny': {
+    d: [['M', 16.02, -17.25], ['c', 0.12, -0.09, 0.15, -0.09, 0.27, -0.09], ['c', 0.21, 0.03, 0.51, 0.30, 0.51, 0.45], ['c', 0.00, 0.06, -0.12, 0.18, -0.30, 0.36], ['c', -1.11, 1.08, -2.55, 1.59, -3.84, 1.41], ['c', -0.15, -0.03, -0.33, -0.06, -0.39, -0.09], ['c', -0.06, -0.03, -0.09, -0.03, -0.12, -0.03], ['c', 0.00, 0.00, -0.06, 0.42, -0.15, 0.93], ['c', -0.33, 2.01, -0.66, 3.69, -0.84, 4.26], ['c', -0.42, 1.41, -1.23, 2.67, -2.16, 3.33], ['c', -0.27, 0.18, -0.75, 0.42, -0.99, 0.48], ['c', -0.30, 0.09, -0.72, 0.09, -1.02, 0.06], ['c', -0.45, -0.09, -0.84, -0.33, -1.53, -0.90], ['c', -0.21, -0.18, -0.51, -0.39, -0.63, -0.48], ['c', -0.27, -0.21, -0.30, -0.24, -0.30, -0.36], ['c', 0.00, -0.12, 0.09, -0.36, 0.18, -0.45], ['c', 0.09, -0.09, 0.27, -0.18, 0.36, -0.18], ['c', 0.12, 0.00, 0.30, 0.12, 0.66, 0.45], ['c', 0.57, 0.51, 0.87, 0.69, 1.23, 0.72], ['c', 0.93, 0.06, 1.68, -0.78, 1.98, -2.37], ['c', 0.09, -0.39, 0.15, -0.75, 0.18, -1.53], ['c', 0.06, -0.99, 0.24, -2.79, 0.42, -4.05], ['c', 0.03, -0.30, 0.06, -0.57, 0.06, -0.60], ['c', 0.00, -0.06, -0.03, -0.09, -0.15, -0.12], ['c', -0.90, -0.18, -2.13, 0.06, -2.76, 0.57], ['c', -0.36, 0.30, -0.51, 0.60, -0.51, 1.02], ['c', 0.00, 0.45, 0.15, 0.75, 0.48, 0.99], ['c', 0.06, 0.06, 0.15, 0.18, 0.18, 0.24], ['c', 0.12, 0.24, 0.03, 0.63, -0.15, 0.69], ['c', -0.24, 0.12, -0.60, 0.15, -0.90, 0.15], ['c', -0.36, -0.03, -0.57, -0.09, -0.87, -0.24], ['c', -0.78, -0.36, -1.23, -1.11, -1.20, -1.92], ['c', 0.12, -1.53, 1.74, -2.49, 4.62, -2.70], ['c', 1.20, -0.09, 1.47, -0.03, 3.33, 0.57], ['c', 0.90, 0.30, 1.14, 0.36, 1.56, 0.39], ['c', 0.45, 0.00, 0.93, -0.06, 1.38, -0.21], ['c', 0.51, -0.18, 0.81, -0.33, 1.41, -0.75], ['z'], ['m', -4.68, 10.38], ['c', 0.39, -0.06, 0.84, 0.00, 1.20, 0.15], ['c', 0.24, 0.12, 0.36, 0.21, 0.45, 0.36], ['l', 0.09, 0.09], ['l', -0.06, 1.41], ['c', -0.09, 2.19, -0.18, 3.96, -0.27, 5.49], ['c', -0.03, 0.78, -0.06, 1.59, -0.06, 1.86], ['c', 0.00, 0.42, 0.00, 0.48, 0.06, 0.57], ['c', 0.06, 0.18, 0.18, 0.24, 0.36, 0.27], ['c', 0.18, 0.00, 0.39, -0.06, 0.84, -0.27], ['c', 0.45, -0.21, 0.54, -0.24, 0.63, -0.18], ['c', 0.12, 0.12, 0.15, 0.54, 0.03, 0.69], ['c', -0.03, 0.03, -0.15, 0.12, -0.27, 0.18], ['c', -0.15, 0.03, -0.30, 0.12, -0.36, 0.15], ['c', -0.87, 0.45, -1.02, 0.51, -1.26, 0.57], ['c', -0.33, 0.09, -0.60, 0.06, -0.84, -0.06], ['c', -0.42, -0.18, -0.63, -0.60, -0.87, -1.44], ['c', -0.30, -1.23, -0.57, -2.97, -0.66, -4.08], ['c', 0.00, -0.18, -0.03, -0.30, -0.03, -0.33], ['l', -0.06, 0.06], ['c', -0.18, 0.27, -1.11, 1.38, -1.68, 2.01], ['l', -0.33, 0.33], ['l', 0.06, 0.09], ['c', 0.06, 0.15, 0.27, 0.33, 0.48, 0.42], ['c', 0.27, 0.18, 0.51, 0.24, 0.96, 0.27], ['l', 0.39, 0.00], ['l', 0.03, 0.12], ['c', 0.12, 0.21, 0.03, 0.57, -0.15, 0.69], ['c', -0.03, 0.03, -0.21, 0.09, -0.36, 0.15], ['c', -0.27, 0.06, -0.39, 0.06, -0.75, 0.06], ['c', -0.48, 0.00, -0.75, -0.03, -1.08, -0.21], ['c', -0.21, -0.12, -0.51, -0.36, -0.57, -0.48], ['l', -0.03, -0.09], ['l', -0.39, 0.36], ['c', -1.47, 1.35, -2.49, 1.98, -3.42, 2.13], ['c', -0.54, 0.09, -0.96, -0.03, -1.62, -0.39], ['c', -0.21, -0.15, -0.45, -0.27, -0.54, -0.30], ['c', -0.18, -0.09, -0.21, -0.21, -0.12, -0.45], ['c', 0.06, -0.27, 0.33, -0.48, 0.54, -0.48], ['c', 0.03, 0.00, 0.27, 0.09, 0.48, 0.21], ['c', 0.48, 0.24, 0.69, 0.27, 0.99, 0.27], ['c', 0.60, -0.06, 1.17, -0.42, 2.10, -1.35], ['c', 2.22, -2.22, 4.02, -4.98, 4.95, -7.59], ['c', 0.21, -0.57, 0.30, -0.78, 0.48, -0.93], ['c', 0.15, -0.15, 0.42, -0.27, 0.66, -0.33], ['z'], ['m', -3.06, 12.84], ['c', 0.27, -0.03, 1.68, 0.00, 2.01, 0.03], ['c', 1.92, 0.18, 3.15, 0.69, 3.63, 1.50], ['c', 0.18, 0.33, 0.24, 0.51, 0.21, 0.93], ['c', 0.00, 0.45, -0.06, 0.72, -0.24, 1.11], ['c', -0.24, 0.51, -0.69, 1.02, -1.17, 1.35], ['c', -0.21, 0.15, -0.21, 0.15, -0.12, 0.18], ['c', 0.72, 0.15, 1.11, 0.30, 1.50, 0.57], ['c', 0.39, 0.24, 0.63, 0.57, 0.75, 0.96], ['c', 0.09, 0.30, 0.09, 0.96, 0.00, 1.29], ['c', -0.15, 0.57, -0.39, 1.05, -0.78, 1.50], ['c', -0.66, 0.75, -1.62, 1.32, -2.61, 1.53], ['c', -0.27, 0.06, -0.42, 0.06, -0.84, 0.06], ['c', -0.48, 0.00, -0.57, 0.00, -0.81, -0.06], ['c', -0.60, -0.18, -1.05, -0.42, -1.47, -0.81], ['c', -0.36, -0.39, -0.42, -0.51, -0.30, -0.75], ['c', 0.12, -0.21, 0.39, -0.39, 0.60, -0.39], ['c', 0.09, 0.00, 0.15, 0.03, 0.33, 0.18], ['c', 0.12, 0.12, 0.27, 0.24, 0.36, 0.27], ['c', 0.96, 0.48, 2.46, -0.33, 2.82, -1.50], ['c', 0.24, -0.81, -0.03, -1.44, -0.69, -1.77], ['c', -0.39, -0.21, -1.02, -0.33, -1.53, -0.33], ['c', -0.18, 0.00, -0.21, 0.00, -0.27, -0.09], ['c', -0.06, -0.09, -0.06, -0.30, -0.03, -0.48], ['c', 0.06, -0.18, 0.18, -0.36, 0.33, -0.36], ['c', 0.39, -0.06, 0.51, -0.09, 0.72, -0.18], ['c', 0.69, -0.36, 1.11, -1.23, 0.99, -2.01], ['c', -0.09, -0.51, -0.42, -0.90, -0.93, -1.17], ['c', -0.24, -0.12, -0.60, -0.27, -0.87, -0.30], ['c', -0.09, -0.03, -0.09, -0.03, -0.12, 0.12], ['c', 0.00, 0.09, -0.21, 1.11, -0.42, 2.25], ['c', -0.66, 3.75, -0.72, 3.99, -1.26, 5.07], ['c', -0.90, 1.89, -2.25, 2.85, -3.48, 2.61], ['c', -0.39, -0.09, -0.69, -0.27, -1.38, -0.84], ['c', -0.63, -0.51, -0.63, -0.48, -0.63, -0.60], ['c', 0.00, -0.18, 0.18, -0.48, 0.39, -0.57], ['c', 0.21, -0.12, 0.30, -0.09, 0.81, 0.33], ['c', 0.15, 0.15, 0.39, 0.30, 0.54, 0.36], ['c', 0.18, 0.12, 0.27, 0.12, 0.48, 0.15], ['c', 0.99, 0.06, 1.71, -0.78, 2.04, -2.46], ['c', 0.12, -0.66, 0.18, -1.14, 0.21, -2.22], ['c', 0.03, -1.23, 0.12, -2.25, 0.36, -3.63], ['c', 0.03, -0.24, 0.06, -0.45, 0.06, -0.48], ['c', -0.06, -0.03, -0.66, 0.27, -0.90, 0.42], ['c', -0.06, 0.06, -0.21, 0.18, -0.33, 0.30], ['c', -0.57, 0.57, -0.60, 1.35, -0.06, 1.74], ['c', 0.18, 0.12, 0.24, 0.24, 0.21, 0.51], ['c', -0.03, 0.30, -0.15, 0.42, -0.57, 0.48], ['c', -1.11, 0.24, -2.22, -0.42, -2.43, -1.38], ['c', -0.09, -0.45, 0.03, -1.02, 0.30, -1.47], ['c', 0.18, -0.24, 0.60, -0.63, 0.90, -0.84], ['c', 0.90, -0.60, 2.28, -1.02, 3.69, -1.11], ['z']],
+    w: 15.709,
+    h: 34.656
+  },
   'timesig.common': {
     d: [['M', 6.66, -7.83], ['c', 0.72, -0.06, 1.41, -0.03, 1.98, 0.09], ['c', 1.20, 0.27, 2.34, 0.96, 3.09, 1.92], ['c', 0.63, 0.81, 1.08, 1.86, 1.14, 2.73], ['c', 0.06, 1.02, -0.51, 1.92, -1.44, 2.22], ['c', -0.24, 0.09, -0.30, 0.09, -0.63, 0.09], ['c', -0.33, 0.00, -0.42, 0.00, -0.63, -0.06], ['c', -0.66, -0.24, -1.14, -0.63, -1.41, -1.20], ['c', -0.15, -0.30, -0.21, -0.51, -0.24, -0.90], ['c', -0.06, -1.08, 0.57, -2.04, 1.56, -2.37], ['c', 0.18, -0.06, 0.27, -0.06, 0.63, -0.06], ['l', 0.45, 0.00], ['c', 0.06, 0.03, 0.09, 0.03, 0.09, 0.00], ['c', 0.00, 0.00, -0.09, -0.12, -0.24, -0.27], ['c', -1.02, -1.11, -2.55, -1.68, -4.08, -1.50], ['c', -1.29, 0.15, -2.04, 0.69, -2.40, 1.74], ['c', -0.36, 0.93, -0.42, 1.89, -0.42, 5.37], ['c', 0.00, 2.97, 0.06, 3.96, 0.24, 4.77], ['c', 0.24, 1.08, 0.63, 1.68, 1.41, 2.07], ['c', 0.81, 0.39, 2.16, 0.45, 3.18, 0.09], ['c', 1.29, -0.45, 2.37, -1.53, 3.03, -2.97], ['c', 0.15, -0.33, 0.33, -0.87, 0.39, -1.17], ['c', 0.09, -0.24, 0.15, -0.36, 0.30, -0.39], ['c', 0.21, -0.03, 0.42, 0.15, 0.39, 0.36], ['c', -0.06, 0.39, -0.42, 1.38, -0.69, 1.89], ['c', -0.96, 1.80, -2.49, 2.94, -4.23, 3.18], ['c', -0.99, 0.12, -2.58, -0.06, -3.63, -0.45], ['c', -0.96, -0.36, -1.71, -0.84, -2.40, -1.50], ['c', -1.11, -1.11, -1.80, -2.61, -2.04, -4.56], ['c', -0.06, -0.60, -0.06, -2.01, 0.00, -2.61], ['c', 0.24, -1.95, 0.90, -3.45, 2.01, -4.56], ['c', 0.69, -0.66, 1.44, -1.11, 2.37, -1.47], ['c', 0.63, -0.24, 1.47, -0.42, 2.22, -0.48], ['z']],
     w: 13.038,
@@ -19698,7 +22745,7 @@ var pathScale = function pathScale(pathArray, kx, ky) {
 };
 
 var Glyphs = {
-  printSymbol: function printSymbol(x, y, symb, paper, klass, stroke, fill) {
+  printSymbol: function printSymbol(x, y, symb, paper, attrs) {
     if (!glyphs[symb]) return null;
     var pathArray = pathClone(glyphs[symb].d);
     pathArray[0][1] += x;
@@ -19709,12 +22756,8 @@ var Glyphs = {
       path += pathArray[i].join(" ");
     }
 
-    return paper.path({
-      path: path,
-      stroke: stroke,
-      fill: fill,
-      'class': klass
-    });
+    attrs.path = path;
+    return paper.path(attrs);
   },
   getPathForSymbol: function getPathForSymbol(x, y, symb, scalex, scaley) {
     scalex = scalex || 1;
@@ -19874,6 +22917,7 @@ var RelativeElement = function RelativeElement(c, dx, w, pitch, opt) {
 
   if (opt.top) this.top = opt.top;
   if (opt.bottom) this.bottom = opt.bottom;
+  if (opt.name) this.name = opt.name;else if (this.c) this.name = this.c;else this.name = this.type;
   if (opt.realWidth) this.realWidth = opt.realWidth;else this.realWidth = this.w;
   this.centerVertically = false;
 
@@ -19906,11 +22950,14 @@ var RelativeElement = function RelativeElement(c, dx, w, pitch, opt) {
 RelativeElement.prototype.getChordDim = function () {
   if (this.type === "debug") return null;
   if (!this.chordHeightAbove && !this.chordHeightBelow) return null; // Chords are centered, annotations are left justified.
+  // NOTE: the font reports extra space to the left and right anyway, so there is a built in margin.
   // We add a little margin so that items can't touch - we use half the font size as the margin, so that is 1/4 on each side.
   // if there is only one character that we're printing, use half of that margin.
+  // var margin = this.dim.font.size/4;
+  // if (this.c.length === 1)
+  // 	margin = margin / 2;
 
-  var margin = this.dim.font.size / 4;
-  if (this.c.length === 1) margin = margin / 2;
+  var margin = 0;
   var offset = this.type === "chord" ? this.realWidth / 2 : 0;
   var left = this.x - offset - margin;
   var right = left + this.realWidth + margin;
@@ -20131,6 +23178,10 @@ Renderer.prototype.calcY = function (ofs) {
 Renderer.prototype.moveY = function (em, numLines) {
   if (numLines === undefined) numLines = 1;
   this.y += em * numLines;
+};
+
+Renderer.prototype.absolutemoveY = function (y) {
+  this.y = y;
 };
 
 module.exports = Renderer;
@@ -20414,6 +23465,17 @@ TieElem.prototype.addInternalNote = function (note) {
 TieElem.prototype.setEndAnchor = function (anchor2) {
   //	console.log("end", this.anchor1 ? this.anchor1.pitch : "N/A", anchor2 ? anchor2.pitch : "N/A", this.isTie, this.isGrace);
   this.anchor2 = anchor2; // must have a .x and a .pitch property or be null (means ends at the end of the line)
+  // we don't really have enough info to know what the vertical extent is yet and we won't until drawing. This will just give it enough
+  // room on either side (we don't even know if the slur will be above yet). We need to set this so that we can make sure the voice has
+  // at least enough room that the line doesn't get cut off if the tie or slur is the lowest thing.
+
+  if (this.anchor1) {
+    this.top = Math.max(this.anchor1.pitch, this.anchor2.pitch) + 4;
+    this.bottom = Math.min(this.anchor1.pitch, this.anchor2.pitch) - 4;
+  } else {
+    this.top = this.anchor2.pitch + 4;
+    this.bottom = this.anchor2.pitch - 4;
+  }
 }; // If we encounter a repeat sign, then we don't want to extend either a tie or a slur past it, so these are called to be a limit.
 
 
@@ -20477,7 +23539,7 @@ TieElem.prototype.calcX = function (lineStartX, lineEndX) {
 
   if (this.anchor2) this.endX = this.anchor2.x; // The normal case where there is a starting element to attach to.
   else if (this.endLimitX) this.endX = this.endLimitX.x; // if there is no start element, but there is a repeat mark before the start of the line.
-    else this.endX = lineEndX; // There is no element and no repeat mark: extend to the beginning of the line.
+  else this.endX = lineEndX; // There is no element and no repeat mark: extend to the beginning of the line.
 };
 
 TieElem.prototype.calcTieY = function () {
@@ -20560,10 +23622,10 @@ TripletElem.prototype.middleNote = function (elem) {
 };
 
 TripletElem.prototype.setCloseAnchor = function (anchor2) {
-  this.anchor2 = anchor2; // TODO-PER: Unfortunately, I don't know if there is a beam above until after the vertical positioning is done,
-  // so I don't know whether to leave room for the number above. Therefore, If there is a beam on the first note, I'll leave room just in case.
+  this.anchor2 = anchor2; // TODO-PER: This used to be just for beamed triplets but it looks like bracketed triplets need extra room, too. The only one that doesn't is stem down and beamed
+  //if (this.anchor1.parent.beam)
 
-  if (this.anchor1.parent.beam) this.endingHeightAbove = 4;
+  if (!this.anchor1.parent.beam || this.anchor1.stemDir === 'up') this.endingHeightAbove = 4;
 };
 
 module.exports = TripletElem;
@@ -20680,7 +23742,9 @@ var RelativeElement = __webpack_require__(/*! ./abc_relative_element */ "./src/w
 
 var spacing = __webpack_require__(/*! ./abc_spacing */ "./src/write/abc_spacing.js");
 
-var addChord = function addChord(getTextSize, abselem, elem, roomTaken, roomTakenRight, noteheadWidth) {
+var formatJazzChord = __webpack_require__(/*! ./format-jazz-chord */ "./src/write/format-jazz-chord.js");
+
+var addChord = function addChord(getTextSize, abselem, elem, roomTaken, roomTakenRight, noteheadWidth, jazzchords) {
   for (var i = 0; i < elem.chord.length; i++) {
     var pos = elem.chord[i].position;
     var rel_position = elem.chord[i].rel_position;
@@ -20694,12 +23758,13 @@ var addChord = function addChord(getTextSize, abselem, elem, roomTaken, roomTake
       var font;
       var klass;
 
-      if (pos === "left" || pos === "right" || pos === "below" || pos === "above") {
+      if (pos === "left" || pos === "right" || pos === "below" || pos === "above" || !!rel_position) {
         font = 'annotationfont';
         klass = "annotation";
       } else {
         font = 'gchordfont';
         klass = "chord";
+        if (jazzchords) chord = formatJazzChord(chord);
       }
 
       var attr = getTextSize.attr(font, klass);
@@ -20796,11 +23861,63 @@ module.exports = addChord;
 
 /***/ }),
 
+/***/ "./src/write/add-text-if.js":
+/*!**********************************!*\
+  !*** ./src/write/add-text-if.js ***!
+  \**********************************/
+/***/ (function(module) {
+
+function addTextIf(rows, params, getTextSize) {
+  if (!params.text) return;
+  if (!params.marginLeft) params.marginLeft = 0;
+  if (!params.klass) params.klass = '';
+  if (!params.anchor) params.anchor = 'start';
+  if (!params.info) params.info = {
+    startChar: -2,
+    endChar: -2
+  };
+  if (params.marginTop) rows.push({
+    move: params.marginTop
+  });
+  var attr = {
+    left: params.marginLeft,
+    text: params.text,
+    font: params.font,
+    anchor: params.anchor,
+    startChar: params.info.startChar,
+    endChar: params.info.endChar
+  };
+  if (params.absElemType) attr.absElemType = params.absElemType;
+  if (!params.inGroup) attr.klass = params.klass;
+  if (params.name) attr.name = params.name;
+  rows.push(attr); // If there are blank lines they won't be counted by getTextSize, so just get the height of one line and multiply
+
+  var size = getTextSize.calc("A", params.font, params.klass);
+  var numLines = params.text.split("\n").length;
+  if (params.text[params.text.length - 1] === '\n') numLines--; // If there is a new line at the end of the string, then an extra line will be counted.
+
+  if (!params.noMove) {
+    var h = size.height * 1.1 * numLines;
+    rows.push({
+      move: Math.round(h)
+    });
+    if (params.marginBottom) rows.push({
+      move: params.marginBottom
+    });
+  }
+}
+
+module.exports = addTextIf;
+
+/***/ }),
+
 /***/ "./src/write/bottom-text.js":
 /*!**********************************!*\
   !*** ./src/write/bottom-text.js ***!
   \**********************************/
-/***/ (function(module) {
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+var addTextIf = __webpack_require__(/*! ./add-text-if */ "./src/write/add-text-if.js");
 
 function BottomText(metaText, width, isPrint, paddingLeft, spacing, getTextSize) {
   this.rows = [];
@@ -20815,7 +23932,8 @@ BottomText.prototype.unalignedWords = function (unalignedWords, paddingLeft, spa
   var defFont = 'wordsfont';
   this.rows.push({
     startGroup: "unalignedWords",
-    klass: 'abcjs-meta-bottom abcjs-unaligned-words'
+    klass: 'abcjs-meta-bottom abcjs-unaligned-words',
+    name: "words"
   });
   var space = getTextSize.calc("i", defFont, klass);
   this.rows.push({
@@ -20826,7 +23944,14 @@ BottomText.prototype.unalignedWords = function (unalignedWords, paddingLeft, spa
     if (unalignedWords[j] === '') this.rows.push({
       move: space.height
     });else if (typeof unalignedWords[j] === 'string') {
-      this.addTextIf(paddingLeft + indent, unalignedWords[j], defFont, klass, 0, 0, "start", getTextSize, null, true);
+      addTextIf(this.rows, {
+        marginLeft: paddingLeft + indent,
+        text: unalignedWords[j],
+        font: defFont,
+        klass: klass,
+        inGroup: true,
+        name: "words"
+      }, getTextSize);
     } else {
       var largestY = 0;
       var offsetX = 0;
@@ -20860,7 +23985,10 @@ BottomText.prototype.unalignedWords = function (unalignedWords, paddingLeft, spa
   });
   this.rows.push({
     endGroup: "unalignedWords",
-    absElemType: "unalignedWords"
+    absElemType: "unalignedWords",
+    startChar: -1,
+    endChar: -1,
+    name: "unalignedWords"
   });
 };
 
@@ -20877,7 +24005,15 @@ BottomText.prototype.extraText = function (metaText, marginLeft, spacing, getTex
   if (metaText['abc-edited-by']) extraText += "Edited By: " + metaText['abc-edited-by'] + "\n";
 
   if (extraText.length > 0) {
-    this.addTextIf(marginLeft, extraText, 'historyfont', 'meta-bottom extra-text', spacing.info, 0, "start", getTextSize, "extraText");
+    addTextIf(this.rows, {
+      marginLeft: marginLeft,
+      text: extraText,
+      font: 'historyfont',
+      klass: 'meta-bottom extra-text',
+      marginTop: spacing.info,
+      absElemType: "extraText",
+      name: "description"
+    }, getTextSize);
   }
 };
 
@@ -20889,41 +24025,29 @@ BottomText.prototype.footer = function (footer, width, paddingLeft, getTextSize)
     klass: klass
   }); // Note: whether there is a footer or not doesn't change any other positioning, so this doesn't change the Y-coordinate.
 
-  this.addTextIf(paddingLeft, footer.left, font, klass, 0, 0, 'start', getTextSize);
-  this.addTextIf(paddingLeft + width / 2, footer.center, font, klass, 0, 0, 'middle', getTextSize);
-  this.addTextIf(paddingLeft + width, footer.right, font, klass, 0, 0, 'end', getTextSize);
-};
-
-BottomText.prototype.addTextIf = function (marginLeft, text, font, klass, marginTop, marginBottom, anchor, getTextSize, absElemType, inGroup) {
-  if (!text) return;
-  if (marginTop) this.rows.push({
-    move: marginTop
-  });
-  var attr = {
-    left: marginLeft,
-    text: text,
+  addTextIf(this.rows, {
+    marginLeft: paddingLeft,
+    text: footer.left,
     font: font,
-    anchor: anchor
-  };
-  if (absElemType) attr.absElemType = absElemType;
-
-  if (!inGroup) {
-    attr.klass = klass;
-  }
-
-  this.rows.push(attr); // If there are blank lines they won't be counted by getTextSize, so just get the height of one line and multiply
-
-  var size = getTextSize.calc("A", font, klass);
-  var numLines = text.split("\n").length;
-  if (text[text.length - 1] === '\n') numLines--; // If there is a new line at the end of the string, then an extra line will be counted.
-
-  var h = size.height * 1.1 * numLines;
-  this.rows.push({
-    move: Math.round(h)
-  });
-  if (marginBottom) this.rows.push({
-    move: marginBottom
-  });
+    klass: klass,
+    name: "footer"
+  }, getTextSize);
+  addTextIf(this.rows, {
+    marginLeft: paddingLeft + width / 2,
+    text: footer.center,
+    font: font,
+    klass: klass,
+    anchor: 'middle',
+    name: "footer"
+  }, getTextSize);
+  addTextIf(this.rows, {
+    marginLeft: paddingLeft + width,
+    text: footer.right,
+    font: font,
+    klass: klass,
+    anchor: 'end',
+    name: "footer"
+  }, getTextSize);
 };
 
 module.exports = BottomText;
@@ -20945,8 +24069,9 @@ var calcHeight = function calcHeight(staffGroup) {
     var staff = staffGroup.voices[i].staff;
 
     if (!staffGroup.voices[i].duplicate) {
-      height += staff.top;
-      if (staff.bottom < 0) height += -staff.bottom;
+      height += staff.top; //if (staff.bottom < 0)
+
+      height += -staff.bottom;
     }
   }
 
@@ -21088,17 +24213,14 @@ function drawAbsolute(renderer, params, bartop, selectables, staffPos) {
 
   for (var i = 0; i < params.children.length; i++) {
     var child = params.children[i];
-    var el;
 
     switch (child.type) {
       case "TempoElement":
-        el = drawTempo(renderer, child);
-        if (el) params.elemset = params.elemset.concat(el);
+        drawTempo(renderer, child);
         break;
 
       default:
-        el = drawRelativeElement(renderer, child, bartop);
-        if (el) params.elemset.push(el);
+        drawRelativeElement(renderer, child, bartop);
     }
   }
 
@@ -21116,17 +24238,22 @@ function drawAbsolute(renderer, params, bartop, selectables, staffPos) {
     }
   }
 
-  var g = elementGroup.endGroup(klass);
+  var g = elementGroup.endGroup(klass, params.type);
 
   if (g) {
-    if (isTempo && params.elemset.length > 0) {
-      // If this is a tempo element there are text portions that are in params.elemset[0] already.
-      // The graphic portion (the drawn note) is in g and that should just be added to the text so that it is a single element for selecting.
-      renderer.paper.moveElementToChild(params.elemset[0], g);
-      selectables.add(params, params.elemset[0], false, staffPos);
+    if (isTempo) {
+      params.startChar = params.abcelem.startChar;
+      params.endChar = params.abcelem.endChar;
+      selectables.add(params, g, false, staffPos);
     } else {
       params.elemset.push(g);
-      selectables.add(params, g, params.type === 'note', staffPos);
+      var isSelectable = false;
+
+      if (params.type === 'note' || params.type === 'tabNumber') {
+        isSelectable = true;
+      }
+
+      selectables.add(params, g, isSelectable, staffPos);
     }
   } else if (params.elemset.length > 0) selectables.add(params, params.elemset[0], params.type === 'note', staffPos); // If there was no output, then don't add to the selectables. This happens when using the "y" spacer, for instance.
 
@@ -21266,7 +24393,8 @@ function straightPath(renderer, xLeft, yTop, yBottom, type) {
     path: pathString,
     stroke: renderer.foregroundColor,
     fill: renderer.foregroundColor,
-    'class': renderer.controller.classes.generate(type)
+    'class': renderer.controller.classes.generate(type),
+    "data-name": type
   });
 }
 
@@ -21278,7 +24406,8 @@ function curvyPath(renderer, xLeft, yTop, yBottom, type) {
     path: pathString,
     stroke: renderer.foregroundColor,
     fill: renderer.foregroundColor,
-    'class': renderer.controller.classes.generate(type)
+    'class': renderer.controller.classes.generate(type),
+    "data-name": type
   });
 }
 
@@ -21292,7 +24421,8 @@ var draw = function draw(renderer, xLeft, yTop, yBottom, type, header, selectabl
 
   if (header) {
     renderer.paper.openGroup({
-      klass: renderer.controller.classes.generate("staff-extra voice-name")
+      klass: renderer.controller.classes.generate("staff-extra voice-name"),
+      "data-name": type
     });
     var position = yTop + (yBottom - yTop) / 2;
     position = position - renderer.controller.getTextSize.baselineToCenter(header, "voicefont", 'staff-extra voice-name', 0, 1);
@@ -21373,7 +24503,8 @@ var drawLine = function drawLine(renderer, y1, y2, y3, y4, left, right) {
     path: pathString,
     highlight: "stroke",
     stroke: renderer.foregroundColor,
-    'class': renderer.controller.classes.generate('dynamics decoration')
+    'class': renderer.controller.classes.generate('dynamics decoration'),
+    "data-name": "dynamics"
   });
 };
 
@@ -21420,10 +24551,12 @@ var spacing = __webpack_require__(/*! ../abc_spacing */ "./src/write/abc_spacing
 
 var Selectables = __webpack_require__(/*! ./selectables */ "./src/write/draw/selectables.js");
 
-function draw(renderer, classes, abcTune, width, maxWidth, responsive, scale, selectTypes, tuneNumber) {
+function draw(renderer, classes, abcTune, width, maxWidth, responsive, scale, selectTypes, tuneNumber, lineOffset) {
   var selectables = new Selectables(renderer.paper, selectTypes, tuneNumber);
+  renderer.paper.openGroup();
   renderer.moveY(renderer.padding.top);
   nonMusic(renderer, abcTune.topText, selectables);
+  renderer.paper.closeGroup();
   renderer.moveY(renderer.spacing.music);
   var staffgroups = [];
 
@@ -21432,24 +24565,35 @@ function draw(renderer, classes, abcTune, width, maxWidth, responsive, scale, se
     var abcLine = abcTune.lines[line];
 
     if (abcLine.staff) {
+      renderer.paper.openGroup();
+
       if (abcLine.vskip) {
         renderer.moveY(abcLine.vskip);
       }
 
       if (staffgroups.length >= 1) addStaffPadding(renderer, renderer.spacing.staffSeparation, staffgroups[staffgroups.length - 1], abcLine.staffGroup);
-      var staffgroup = engraveStaffLine(renderer, abcLine.staffGroup, selectables);
-      staffgroup.line = line; // If there are non-music lines then the staffgroup array won't line up with the line array, so this keeps track.
+      var staffgroup = engraveStaffLine(renderer, abcLine.staffGroup, selectables, line);
+      staffgroup.line = lineOffset + line; // If there are non-music lines then the staffgroup array won't line up with the line array, so this keeps track.
 
       staffgroups.push(staffgroup);
+      renderer.paper.closeGroup();
     } else if (abcLine.nonMusic) {
+      renderer.paper.openGroup();
       nonMusic(renderer, abcLine.nonMusic, selectables);
+      renderer.paper.closeGroup();
     }
   }
 
   classes.reset();
-  renderer.moveY(24); // TODO-PER: Empirically discovered. What variable should this be?
 
-  nonMusic(renderer, abcTune.bottomText, selectables);
+  if (abcTune.bottomText && abcTune.bottomText.rows && abcTune.bottomText.rows.length > 0) {
+    renderer.paper.openGroup();
+    renderer.moveY(24); // TODO-PER: Empirically discovered. What variable should this be?
+
+    nonMusic(renderer, abcTune.bottomText, selectables);
+    renderer.paper.closeGroup();
+  }
+
   setPaperSize(renderer, maxWidth, scale, responsive);
   return {
     staffgroups: staffgroups,
@@ -21457,8 +24601,8 @@ function draw(renderer, classes, abcTune, width, maxWidth, responsive, scale, se
   };
 }
 
-function engraveStaffLine(renderer, staffGroup, selectables) {
-  drawStaffGroup(renderer, staffGroup, selectables);
+function engraveStaffLine(renderer, staffGroup, selectables, lineNumber) {
+  drawStaffGroup(renderer, staffGroup, selectables, lineNumber);
   var height = staffGroup.height * spacing.STEP;
   renderer.y += height;
   return staffGroup;
@@ -21492,7 +24636,14 @@ function drawDynamics(renderer, params, selectables) {
   if (params.pitch === undefined) window.console.error("Dynamic Element y-coordinate not set.");
   var scalex = 1;
   var scaley = 1;
-  var el = printSymbol(renderer, params.anchor.x, params.pitch, params.dec, scalex, scaley, renderer.controller.classes.generate('decoration dynamics'));
+  var el = printSymbol(renderer, params.anchor.x, params.pitch, params.dec, {
+    scalex: scalex,
+    scaley: scaley,
+    klass: renderer.controller.classes.generate('decoration dynamics'),
+    fill: renderer.foregroundColor,
+    stroke: "none",
+    name: "dynamics"
+  });
   selectables.wrapSvgEl({
     el_type: "dynamicDecoration",
     startChar: -1,
@@ -21538,12 +24689,14 @@ function drawEnding(renderer, params, linestartx, lineendx, selectables) {
 
   pathString += sprintf("M %f %f L %f %f ", linestartx, y, lineendx, y);
   renderer.paper.openGroup({
-    klass: renderer.controller.classes.generate("ending")
+    klass: renderer.controller.classes.generate("ending"),
+    "data-name": "ending"
   });
   printPath(renderer, {
     path: pathString,
     stroke: renderer.foregroundColor,
-    fill: renderer.foregroundColor
+    fill: renderer.foregroundColor,
+    "data-name": "line"
   });
   if (params.anchor1) renderText(renderer, {
     x: roundNumber(linestartx + 5),
@@ -21552,7 +24705,8 @@ function drawEnding(renderer, params, linestartx, lineendx, selectables) {
     type: 'repeatfont',
     klass: 'ending',
     anchor: "start",
-    noClass: true
+    noClass: true,
+    name: params.text
   });
   var g = renderer.paper.closeGroup();
   selectables.wrapSvgEl({
@@ -21564,6 +24718,107 @@ function drawEnding(renderer, params, linestartx, lineendx, selectables) {
 }
 
 module.exports = drawEnding;
+
+/***/ }),
+
+/***/ "./src/write/draw/glissando.js":
+/*!*************************************!*\
+  !*** ./src/write/draw/glissando.js ***!
+  \*************************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+var sprintf = __webpack_require__(/*! ./sprintf */ "./src/write/draw/sprintf.js");
+
+var printPath = __webpack_require__(/*! ./print-path */ "./src/write/draw/print-path.js");
+
+var roundNumber = __webpack_require__(/*! ./round-number */ "./src/write/draw/round-number.js");
+
+function drawGlissando(renderer, params, selectables) {
+  if (!params.anchor1 || !params.anchor2 || !params.anchor1.heads || !params.anchor2.heads || params.anchor1.heads.length === 0 || params.anchor2.heads.length === 0) window.console.error("Glissando Element not set.");
+  var margin = 4;
+  var leftY = renderer.calcY(params.anchor1.heads[0].pitch);
+  var rightY = renderer.calcY(params.anchor2.heads[0].pitch);
+  var leftX = params.anchor1.x + params.anchor1.w / 2;
+  var rightX = params.anchor2.x + params.anchor2.w / 2;
+  var len = lineLength(leftX, leftY, rightX, rightY);
+  var marginLeft = params.anchor1.w / 2 + margin;
+  var marginRight = params.anchor2.w / 2 + margin;
+  var s = slope(leftX, leftY, rightX, rightY);
+  var leftYAdj = getY(leftY, s, marginLeft);
+  var rightYAdj = getY(rightY, s, -marginRight);
+  var num = numSquigglies(len - marginLeft - marginRight);
+  var el = drawSquiggly(renderer, leftX + marginLeft, leftYAdj, num, s);
+  selectables.wrapSvgEl({
+    el_type: "glissando",
+    startChar: -1,
+    endChar: -1
+  }, el);
+  return [el];
+}
+
+function lineLength(leftX, leftY, rightX, rightY) {
+  // The length from notehead center to notehead center.
+  var w = rightX - leftX;
+  var h = rightY - leftY;
+  return Math.sqrt(w * w + h * h);
+}
+
+function slope(leftX, leftY, rightX, rightY) {
+  return (rightY - leftY) / (rightX - leftX);
+}
+
+function getY(y, slope, xOfs) {
+  return roundNumber(y + xOfs * slope);
+}
+
+function numSquigglies(length) {
+  var endLen = 5; // The width of the end - that is, the non repeating part
+
+  return Math.max(2, Math.floor((length - endLen * 2) / 6));
+}
+
+var leftStart = [[3.5, -4.8]];
+var right = [[1.5, -1], [.3, -.3], [-3.5, 3.8]];
+var leftEnd = [[-1.5, 2]];
+var top = [[3, 4], [3, -4]];
+var bottom = [[-3, 4], [-3, -4]];
+
+function segment(arr, slope) {
+  var ret = "";
+
+  for (var i = 0; i < arr.length; i++) {
+    ret += 'l' + arr[i][0] + ' ' + getY(arr[i][1], slope, arr[i][0]);
+  }
+
+  return ret;
+}
+
+var drawSquiggly = function drawSquiggly(renderer, x, y, num, slope) {
+  var p = sprintf("M %f %f", x, y);
+  p += segment(leftStart, slope);
+  var i;
+
+  for (i = 0; i < num; i++) {
+    p += segment(top, slope);
+  }
+
+  p += segment(right, slope);
+
+  for (i = 0; i < num; i++) {
+    p += segment(bottom, slope);
+  }
+
+  p += segment(leftEnd, slope) + 'z';
+  return printPath(renderer, {
+    path: p,
+    highlight: "stroke",
+    stroke: renderer.foregroundColor,
+    'class': renderer.controller.classes.generate('decoration'),
+    "data-name": "glissando"
+  });
+};
+
+module.exports = drawGlissando;
 
 /***/ }),
 
@@ -21588,6 +24843,7 @@ Group.prototype.beginGroup = function (paper, controller) {
   this.path = [];
   this.lastM = [0, 0];
   this.ingroup = true;
+  this.paper.openGroup();
 };
 
 Group.prototype.isInGroup = function () {
@@ -21618,22 +24874,25 @@ Group.prototype.addPath = function (path) {
  */
 
 
-Group.prototype.endGroup = function (klass) {
-  this.ingroup = false;
-  if (this.path.length === 0) return null;
+Group.prototype.endGroup = function (klass, name) {
+  this.ingroup = false; //if (this.path.length === 0) return null;
+
   var path = "";
 
   for (var i = 0; i < this.path.length; i++) {
     path += this.path[i].join(" ");
   }
 
-  var ret = this.paper.path({
-    path: path,
-    stroke: "none",
-    fill: this.controller.renderer.foregroundColor,
-    'class': this.controller.classes.generate(klass)
-  });
   this.path = [];
+  var ret = this.paper.closeGroup();
+
+  if (ret) {
+    ret.setAttribute("class", this.controller.classes.generate(klass));
+    ret.setAttribute("fill", this.controller.renderer.foregroundColor);
+    ret.setAttribute("stroke", "none");
+    ret.setAttribute("data-name", name);
+  }
+
   return ret;
 }; // There is just a singleton of this object.
 
@@ -21657,7 +24916,9 @@ function nonMusic(renderer, obj, selectables) {
   for (var i = 0; i < obj.rows.length; i++) {
     var row = obj.rows[i];
 
-    if (row.move) {
+    if (row.absmove) {
+      renderer.absolutemoveY(row.absmove);
+    } else if (row.move) {
       renderer.moveY(row.move);
     } else if (row.text) {
       var x = row.left ? row.left : 0;
@@ -21667,14 +24928,16 @@ function nonMusic(renderer, obj, selectables) {
         text: row.text,
         type: row.font,
         klass: row.klass,
+        name: row.name,
         anchor: row.anchor
       });
 
       if (row.absElemType) {
         selectables.wrapSvgEl({
           el_type: row.absElemType,
-          startChar: -1,
-          endChar: -1,
+          name: row.name,
+          startChar: row.startChar,
+          endChar: row.endChar,
           text: row.text
         }, el);
       }
@@ -21682,15 +24945,17 @@ function nonMusic(renderer, obj, selectables) {
       drawSeparator(renderer, row.separator);
     } else if (row.startGroup) {
       renderer.paper.openGroup({
-        klass: row.klass
+        klass: row.klass,
+        "data-name": row.name
       });
     } else if (row.endGroup) {
       // TODO-PER: also create a history element with the title "row.endGroup"
       var g = renderer.paper.closeGroup();
       if (row.absElemType) selectables.wrapSvgEl({
         el_type: row.absElemType,
-        startChar: -1,
-        endChar: -1,
+        name: row.name,
+        startChar: row.startChar,
+        endChar: row.endChar,
         text: ""
       }, g);
     }
@@ -21698,6 +24963,39 @@ function nonMusic(renderer, obj, selectables) {
 }
 
 module.exports = nonMusic;
+
+/***/ }),
+
+/***/ "./src/write/draw/print-line.js":
+/*!**************************************!*\
+  !*** ./src/write/draw/print-line.js ***!
+  \**************************************/
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+var sprintf = __webpack_require__(/*! ./sprintf */ "./src/write/draw/sprintf.js");
+
+var roundNumber = __webpack_require__(/*! ./round-number */ "./src/write/draw/round-number.js");
+
+function printLine(renderer, x1, x2, y, klass, name, dy) {
+  if (!dy) dy = 0.35;
+  var fill = renderer.foregroundColor;
+  x1 = roundNumber(x1);
+  x2 = roundNumber(x2);
+  var y1 = roundNumber(y - dy);
+  var y2 = roundNumber(y + dy);
+  var pathString = sprintf("M %f %f L %f %f L %f %f L %f %f z", x1, y1, x2, y1, x2, y2, x1, y2);
+  var options = {
+    path: pathString,
+    stroke: "none",
+    fill: fill
+  };
+  if (name) options['data-name'] = name;
+  if (klass) options['class'] = klass;
+  var ret = renderer.paper.pathToBack(options);
+  return ret;
+}
+
+module.exports = printLine;
 
 /***/ }),
 
@@ -21726,7 +25024,7 @@ var elementGroup = __webpack_require__(/*! ./group-elements */ "./src/write/draw
 
 var roundNumber = __webpack_require__(/*! ./round-number */ "./src/write/draw/round-number.js");
 
-function printStem(renderer, x, dx, y1, y2) {
+function printStem(renderer, x, dx, y1, y2, klass, name) {
   if (dx < 0 || y1 < y2) {
     // correct path "handedness" for intersection with other elements
     var tmp = roundNumber(y2);
@@ -21739,26 +25037,24 @@ function printStem(renderer, x, dx, y1, y2) {
 
   x = roundNumber(x);
   var x2 = roundNumber(x + dx);
-  var fill = renderer.foregroundColor;
   var pathArray = [["M", x, y1], ["L", x, y2], ["L", x2, y2], ["L", x2, y1], ["z"]];
+  var attr = {
+    path: ""
+  };
 
-  if (elementGroup.isInGroup()) {
-    elementGroup.addPath(pathArray);
-  } else {
-    var path = "";
-
-    for (var i = 0; i < pathArray.length; i++) {
-      path += pathArray[i].join(" ");
-    }
-
-    var ret = renderer.paper.pathToBack({
-      path: path,
-      stroke: "none",
-      fill: fill,
-      'class': renderer.controller.classes.generate('stem')
-    });
-    return ret;
+  for (var i = 0; i < pathArray.length; i++) {
+    attr.path += pathArray[i].join(" ");
   }
+
+  if (klass) attr['class'] = klass;
+  if (name) attr['data-name'] = name;
+
+  if (!elementGroup.isInGroup()) {
+    attr.stroke = "none";
+    attr.fill = renderer.foregroundColor;
+  }
+
+  return renderer.paper.pathToBack(attr);
 }
 
 module.exports = printStem;
@@ -21783,21 +25079,28 @@ var elementGroup = __webpack_require__(/*! ./group-elements */ "./src/write/draw
  */
 
 
-function printSymbol(renderer, x, offset, symbol, scalex, scaley, klass) {
+function printSymbol(renderer, x, offset, symbol, options) {
+  // TODO-PER: what happened to scalex, and scaley? That might have been a bug introduced in refactoring
   var el;
   var ycorr;
   if (!symbol) return null;
 
   if (symbol.length > 1 && symbol.indexOf(".") < 0) {
+    var groupClass = elementGroup.isInGroup() ? '' : options.klass; // If this is already in a group then don't repeat the classes for the sub-group)
+
     renderer.paper.openGroup({
-      klass: klass
+      "data-name": options.name,
+      klass: groupClass
     });
     var dx = 0;
 
     for (var i = 0; i < symbol.length; i++) {
       var s = symbol.charAt(i);
       ycorr = glyphs.getYCorr(s);
-      el = glyphs.printSymbol(x + dx, renderer.calcY(offset + ycorr), s, renderer.paper, '', "none", renderer.foregroundColor);
+      el = glyphs.printSymbol(x + dx, renderer.calcY(offset + ycorr), s, renderer.paper, {
+        stroke: options.stroke,
+        fill: options.fill
+      });
 
       if (el) {
         if (i < symbol.length - 1) dx += kernSymbols(s, symbol.charAt(i + 1), glyphs.getSymbolWidth(s));
@@ -21809,7 +25112,7 @@ function printSymbol(renderer, x, offset, symbol, scalex, scaley, klass) {
           type: "debugfont",
           klass: 'debug-msg',
           anchor: 'start'
-        });
+        }, false);
       }
     }
 
@@ -21819,22 +25122,30 @@ function printSymbol(renderer, x, offset, symbol, scalex, scaley, klass) {
     ycorr = glyphs.getYCorr(symbol);
 
     if (elementGroup.isInGroup()) {
-      elementGroup.addPath(glyphs.getPathForSymbol(x, renderer.calcY(offset + ycorr), symbol, scalex, scaley));
+      el = glyphs.printSymbol(x, renderer.calcY(offset + ycorr), symbol, renderer.paper, {
+        "data-name": options.name
+      });
     } else {
-      el = glyphs.printSymbol(x, renderer.calcY(offset + ycorr), symbol, renderer.paper, klass, "none", renderer.foregroundColor);
-
-      if (el) {
-        return el;
-      } else renderText(renderer, {
-        x: x,
-        y: renderer.y,
-        text: "no symbol:" + symbol,
-        type: "debugfont",
-        klass: 'debug-msg',
-        anchor: 'start'
+      el = glyphs.printSymbol(x, renderer.calcY(offset + ycorr), symbol, renderer.paper, {
+        klass: options.klass,
+        stroke: options.stroke,
+        fill: options.fill,
+        "data-name": options.name
       });
     }
 
+    if (el) {
+      return el;
+    }
+
+    renderText(renderer, {
+      x: x,
+      y: renderer.y,
+      text: "no symbol:" + symbol,
+      type: "debugfont",
+      klass: 'debug-msg',
+      anchor: 'start'
+    }, false);
     return null;
   }
 }
@@ -21875,7 +25186,14 @@ function drawRelativeElement(renderer, params, bartop) {
       if (params.c === null) return null;
       var klass = "symbol";
       if (params.klass) klass += " " + params.klass;
-      params.graphelem = printSymbol(renderer, params.x, params.pitch, params.c, params.scalex, params.scaley, renderer.controller.classes.generate(klass), "none", renderer.foregroundColor);
+      params.graphelem = printSymbol(renderer, params.x, params.pitch, params.c, {
+        scalex: params.scalex,
+        scaley: params.scaley,
+        klass: renderer.controller.classes.generate(klass),
+        //				fill:"none",
+        //				stroke: renderer.foregroundColor,
+        name: params.name
+      });
       break;
 
     case "debug":
@@ -21888,7 +25206,31 @@ function drawRelativeElement(renderer, params, bartop) {
         anchor: 'start',
         centerVertically: false,
         dim: params.dim
-      });
+      }, false);
+      break;
+
+    case "tabNumber":
+      var hAnchor = "middle";
+      var tabFont = "tabnumberfont";
+      var tabClass = 'tab-number';
+
+      if (params.isGrace) {
+        tabFont = "tabgracefont";
+        y += 2.5;
+        tabClass = 'tab-grace';
+      }
+
+      params.graphelem = renderText(renderer, {
+        x: params.x,
+        y: y,
+        text: "" + params.c,
+        type: tabFont,
+        klass: renderer.controller.classes.generate(tabClass),
+        anchor: hAnchor,
+        centerVertically: false,
+        dim: params.dim,
+        cursor: 'default'
+      }, false);
       break;
 
     case "barNumber":
@@ -21899,8 +25241,9 @@ function drawRelativeElement(renderer, params, bartop) {
         type: "measurefont",
         klass: renderer.controller.classes.generate('bar-number'),
         anchor: "middle",
-        dim: params.dim
-      });
+        dim: params.dim,
+        name: "bar-number"
+      }, true);
       break;
 
     case "lyric":
@@ -21911,8 +25254,9 @@ function drawRelativeElement(renderer, params, bartop) {
         type: "vocalfont",
         klass: renderer.controller.classes.generate('lyric'),
         anchor: "middle",
-        dim: params.dim
-      });
+        dim: params.dim,
+        name: "lyric"
+      }, false);
       break;
 
     case "chord":
@@ -21924,8 +25268,9 @@ function drawRelativeElement(renderer, params, bartop) {
         klass: renderer.controller.classes.generate("chord"),
         anchor: "middle",
         dim: params.dim,
-        lane: params.getLane()
-      });
+        lane: params.getLane(),
+        name: "chord"
+      }, false);
       break;
 
     case "decoration":
@@ -21939,7 +25284,7 @@ function drawRelativeElement(renderer, params, bartop) {
         anchor: "middle",
         centerVertically: true,
         dim: params.dim
-      });
+      }, false);
       break;
 
     case "text":
@@ -21952,8 +25297,9 @@ function drawRelativeElement(renderer, params, bartop) {
         anchor: "start",
         centerVertically: params.centerVertically,
         dim: params.dim,
-        lane: params.getLane()
-      });
+        lane: params.getLane(),
+        name: "annotation"
+      }, false);
       break;
 
     case "multimeasure-text":
@@ -21966,7 +25312,7 @@ function drawRelativeElement(renderer, params, bartop) {
         anchor: "middle",
         centerVertically: false,
         dim: params.dim
-      });
+      }, false);
       break;
 
     case "part":
@@ -21977,21 +25323,22 @@ function drawRelativeElement(renderer, params, bartop) {
         type: 'partsfont',
         klass: renderer.controller.classes.generate("part"),
         anchor: "start",
-        dim: params.dim
-      });
+        dim: params.dim,
+        name: params.c
+      }, true);
       break;
 
     case "bar":
-      params.graphelem = printStem(renderer, params.x, params.linewidth, y, bartop ? bartop : renderer.calcY(params.pitch2));
+      params.graphelem = printStem(renderer, params.x, params.linewidth, y, bartop ? bartop : renderer.calcY(params.pitch2), null, "bar");
       break;
     // bartop can't be 0
 
     case "stem":
-      params.graphelem = printStem(renderer, params.x, params.linewidth, y, renderer.calcY(params.pitch2));
+      params.graphelem = printStem(renderer, params.x, params.linewidth, y, renderer.calcY(params.pitch2), 'abcjs-stem', 'stem');
       break;
 
     case "ledger":
-      params.graphelem = printStaffLine(renderer, params.x, params.x + params.w, params.pitch, renderer.controller.classes.generate("ledger"));
+      params.graphelem = printStaffLine(renderer, params.x, params.x + params.w, params.pitch, "abcjs-ledger", "ledger");
       break;
   }
 
@@ -22047,7 +25394,7 @@ Selectables.prototype.getElements = function () {
   return this.elements;
 };
 
-Selectables.prototype.add = function (absEl, svgEl, isNote, staffPos) {
+Selectables.prototype.add = function (absEl, svgEl, isNoteOrTabNumber, staffPos) {
   if (!this.canSelect(absEl)) return;
   var params;
   if (this.selectTypes === undefined) params = {
@@ -22055,15 +25402,15 @@ Selectables.prototype.add = function (absEl, svgEl, isNote, staffPos) {
     "data-index": this.elements.length
   }; // This is the old behavior.
   else params = {
-      selectable: true,
-      tabindex: 0,
-      "data-index": this.elements.length
-    };
+    selectable: true,
+    tabindex: 0,
+    "data-index": this.elements.length
+  };
   this.paper.setAttributeOnElement(svgEl, params);
   var sel = {
     absEl: absEl,
     svgEl: svgEl,
-    isDraggable: isNote
+    isDraggable: isNoteOrTabNumber
   };
   if (staffPos !== undefined) sel.staffPos = staffPos;
   this.elements.push(sel);
@@ -22075,8 +25422,12 @@ Selectables.prototype.canSelect = function (absEl) {
   if (this.selectTypes === true) return true;
 
   if (this.selectTypes === undefined) {
-    // by default, only notes can be clicked.
-    return absEl.abcelem.el_type === 'note';
+    // by default, only notes and tab numbers can be clicked.
+    if (absEl.abcelem.el_type === 'note' || absEl.abcelem.el_type === 'tabNumber') {
+      return true;
+    }
+
+    return false;
   }
 
   return this.selectTypes.indexOf(absEl.abcelem.el_type) >= 0;
@@ -22136,11 +25487,14 @@ function setPaperSize(renderer, maxwidth, scale, responsive) {
   // TODO-PER: We are letting the page get as long as it needs now, but eventually that should go to a second page.
   // for accessibility
 
-  var text = "Sheet Music";
-  if (renderer.abctune && renderer.abctune.metaText && renderer.abctune.metaText.title) text += " for \"" + renderer.abctune.metaText.title + '"';
-  renderer.paper.setTitle(text);
-  var label = renderer.ariaLabel ? renderer.ariaLabel : text;
-  renderer.paper.setAttribute("aria-label", label); // for dragging - don't select during drag
+  if (renderer.ariaLabel !== '') {
+    var text = "Sheet Music";
+    if (renderer.abctune && renderer.abctune.metaText && renderer.abctune.metaText.title) text += " for \"" + renderer.abctune.metaText.title + '"';
+    renderer.paper.setTitle(text);
+    var label = renderer.ariaLabel ? renderer.ariaLabel : text;
+    renderer.paper.setAttribute("aria-label", label);
+  } // for dragging - don't select during drag
+
 
   var styles = ["-webkit-touch-callout: none;", "-webkit-user-select: none;", "-khtml-user-select: none;", "-moz-user-select: none;", "-ms-user-select: none;", "user-select: none;"];
   renderer.paper.insertStyles(".abcjs-dragging-in-progress text, .abcjs-dragging-in-progress tspan {" + styles.join(" ") + "}");
@@ -22174,7 +25528,7 @@ module.exports = setPaperSize;
   \***********************************/
 /***/ (function(module) {
 
-function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+function _typeof(obj) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) { return typeof obj; } : function (obj) { return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }, _typeof(obj); }
 
 /**
  * sprintf() for JavaScript v.0.4
@@ -22296,14 +25650,16 @@ var printDebugBox = __webpack_require__(/*! ./debug-box */ "./src/write/draw/deb
 
 var printStem = __webpack_require__(/*! ./print-stem */ "./src/write/draw/print-stem.js");
 
-function drawStaffGroup(renderer, params, selectables) {
+var nonMusic = __webpack_require__(/*! ./non-music */ "./src/write/draw/non-music.js");
+
+function drawStaffGroup(renderer, params, selectables, lineNumber) {
   // We enter this method with renderer.y pointing to the topmost coordinate that we're allowed to draw.
   // All of the children that will be drawn have a relative "pitch" set, where zero is the first ledger line below the staff.
   // renderer.y will be offset at the beginning of each staff by the amount required to make the relative pitch work.
   // If there are multiple staves, then renderer.y will be incremented for each new staff.
   var colorIndex; // An invisible marker is useful to be able to find where each system starts.
+  //addInvisibleMarker(renderer, "abcjs-top-of-system");
 
-  addInvisibleMarker(renderer, "abcjs-top-of-system");
   var startY = renderer.y; // So that it can be restored after we're done.
   // Set the absolute Y position for each staff here, so the voice drawing below can just use if.
 
@@ -22369,10 +25725,12 @@ function drawStaffGroup(renderer, params, selectables) {
   var topLine; // these are to connect multiple staves. We need to remember where they are.
 
   var bottomLine;
+  var linePitch = 2;
   var bartop = 0;
 
   for (var i = 0; i < params.voices.length; i++) {
     var staff = params.voices[i].staff;
+    var tabName = params.voices[i].tabNameInfos;
     renderer.y = staff.absoluteY;
     renderer.controller.classes.incrVoice(); //renderer.y = staff.y;
     // offset for starting the counting at middle C
@@ -22380,11 +25738,30 @@ function drawStaffGroup(renderer, params, selectables) {
     if (!params.voices[i].duplicate) {
       //			renderer.moveY(spacing.STEP, staff.top);
       if (!topLine) topLine = renderer.calcY(10);
-      bottomLine = renderer.calcY(2);
+      bottomLine = renderer.calcY(linePitch);
 
       if (staff.lines !== 0) {
+        if (staff.linePitch) {
+          linePitch = staff.linePitch;
+        }
+
         renderer.controller.classes.newMeasure();
-        printStaff(renderer, params.startx, params.w, staff.lines);
+        var lines = printStaff(renderer, params.startx, params.w, staff.lines, staff.linePitch, staff.dy);
+        bottomLine = lines[1];
+        staff.bottomLine = bottomLine;
+        staff.topLine = lines[0]; // rework bartop when tabs are present with current staff
+
+        if (staff.hasTab) {
+          // do not link to staff above  (ugly looking)
+          bartop = staff.topLine;
+        }
+
+        if (staff.hasStaff) {
+          // this is a tab
+          bartop = staff.hasStaff.topLine;
+          params.voices[i].barto = true;
+          params.voices[i].topLine = topLine;
+        }
       }
 
       printBrace(renderer, staff.absoluteY, params.brace, i, selectables);
@@ -22396,10 +25773,35 @@ function drawStaffGroup(renderer, params, selectables) {
       zero: renderer.y,
       height: params.height * spacing.STEP
     });
+    var tabNameHeight = 0;
+
+    if (tabName) {
+      // print tab infos on staffBottom
+      var r = {
+        rows: []
+      };
+      r.rows.push({
+        absmove: bottomLine + 2
+      });
+      var leftMargin = 8;
+      r.rows.push({
+        left: params.startx + leftMargin,
+        text: tabName.name,
+        font: 'tablabelfont',
+        klass: 'text instrument-name',
+        anchor: 'start'
+      });
+      r.rows.push({
+        move: tabName.textSize.height
+      });
+      nonMusic(renderer, r);
+      tabNameHeight = tabName.textSize.height;
+    }
+
     renderer.controller.classes.newMeasure();
 
     if (!params.voices[i].duplicate) {
-      bartop = renderer.calcY(2); // This connects the bar lines between two different staves.
+      bartop = renderer.calcY(2 + tabNameHeight); // This connects the bar lines between two different staves.
       //			if (staff.bottom < 0)
       //				renderer.moveY(spacing.STEP, -staff.bottom);
     }
@@ -22407,8 +25809,12 @@ function drawStaffGroup(renderer, params, selectables) {
 
   renderer.controller.classes.newMeasure(); // connect all the staves together with a vertical line
 
-  if (params.staffs.length > 1) {
-    printStem(renderer, params.startx, 0.6, topLine, bottomLine);
+  var staffSize = params.staffs.length;
+
+  if (staffSize > 1) {
+    topLine = params.staffs[0].topLine;
+    bottomLine = params.staffs[staffSize - 1].bottomLine;
+    printStem(renderer, params.startx, 0.6, topLine, bottomLine, null);
   }
 
   renderer.y = startY;
@@ -22445,20 +25851,11 @@ function printBrace(renderer, absoluteY, brace, index, selectables) {
       }
     }
   }
-}
+} // function addInvisibleMarker(renderer, className) {
+// 	var y = Math.round(renderer.y);
+// 	renderer.paper.pathToBack({path:"M 0 " + y + " L 0 0", stroke:"none", fill:"none", "stroke-opacity": 0, "fill-opacity": 0, 'class': renderer.controller.classes.generate(className), 'data-vertical': y });
+// }
 
-function addInvisibleMarker(renderer, className) {
-  var y = Math.round(renderer.y);
-  renderer.paper.pathToBack({
-    path: "M 0 " + y + " L 0 0",
-    stroke: "none",
-    fill: "none",
-    "stroke-opacity": 0,
-    "fill-opacity": 0,
-    'class': renderer.controller.classes.generate(className),
-    'data-vertical': y
-  });
-}
 
 function boxAllElements(renderer, voices, which) {
   for (var i = 0; i < which.length; i++) {
@@ -22512,27 +25909,11 @@ module.exports = drawStaffGroup;
   \**************************************/
 /***/ (function(module, __unused_webpack_exports, __webpack_require__) {
 
-var sprintf = __webpack_require__(/*! ./sprintf */ "./src/write/draw/sprintf.js");
+var printLine = __webpack_require__(/*! ./print-line */ "./src/write/draw/print-line.js");
 
-var roundNumber = __webpack_require__(/*! ./round-number */ "./src/write/draw/round-number.js");
-
-function printStaffLine(renderer, x1, x2, pitch, klass) {
-  var dy = 0.35;
-  var fill = renderer.foregroundColor;
+function printStaffLine(renderer, x1, x2, pitch, klass, name, dy) {
   var y = renderer.calcY(pitch);
-  x1 = roundNumber(x1);
-  x2 = roundNumber(x2);
-  var y1 = roundNumber(y - dy);
-  var y2 = roundNumber(y + dy);
-  var pathString = sprintf("M %f %f L %f %f L %f %f L %f %f z", x1, y1, x2, y1, x2, y2, x1, y2);
-  var options = {
-    path: pathString,
-    stroke: "none",
-    fill: fill
-  };
-  if (klass) options['class'] = klass;
-  var ret = renderer.paper.pathToBack(options);
-  return ret;
+  return printLine(renderer, x1, x2, y, klass, name, dy);
 }
 
 module.exports = printStaffLine;
@@ -22547,23 +25928,42 @@ module.exports = printStaffLine;
 
 var printStaffLine = __webpack_require__(/*! ./staff-line */ "./src/write/draw/staff-line.js");
 
-function printStaff(renderer, startx, endx, numLines) {
+function printStaff(renderer, startx, endx, numLines, linePitch, dy) {
   var klass = "abcjs-top-line";
+  var pitch = 2;
+
+  if (linePitch) {
+    pitch = linePitch;
+  }
+
   renderer.paper.openGroup({
     prepend: true,
     klass: renderer.controller.classes.generate("abcjs-staff")
   }); // If there is one line, it is the B line. Otherwise, the bottom line is the E line.
 
+  var firstYLine = 0;
+  var lastYLine = 0;
+
   if (numLines === 1) {
     printStaffLine(renderer, startx, endx, 6, klass);
+    firstYLine = renderer.calcY(10);
+    lastYLine = renderer.calcY(2);
   } else {
     for (var i = numLines - 1; i >= 0; i--) {
-      printStaffLine(renderer, startx, endx, (i + 1) * 2, klass);
+      var curpitch = (i + 1) * pitch;
+      lastYLine = renderer.calcY(curpitch);
+
+      if (firstYLine === 0) {
+        firstYLine = lastYLine;
+      }
+
+      printStaffLine(renderer, startx, endx, curpitch, klass, null, dy);
       klass = undefined;
     }
   }
 
   renderer.paper.closeGroup();
+  return [firstYLine, lastYLine];
 }
 
 module.exports = printStaff;
@@ -22582,13 +25982,11 @@ var renderText = __webpack_require__(/*! ./text */ "./src/write/draw/text.js");
 
 function drawTempo(renderer, params) {
   var x = params.x;
-  if (params.pitch === undefined) window.console.error("Tempo Element y-coordinate not set.");
-  var tempoGroup;
-  params.tempo.el_type = "tempo"; //	renderer.wrapInAbsElem(params.tempo, "abcjs-tempo", function () {
+  if (params.pitch === undefined) window.console.error("Tempo Element y-coordinate not set."); //var tempoGroup;
 
-  renderer.paper.openGroup({
-    klass: renderer.controller.classes.generate("tempo")
-  }); // The text is aligned with extra room for descenders but numbers look like they are a little too high, so bump it a little.
+  params.tempo.el_type = "tempo"; //	renderer.wrapInAbsElem(params.tempo, "abcjs-tempo", function () {
+  //renderer.paper.openGroup({klass: renderer.controller.classes.generate("tempo wha")});
+  // The text is aligned with extra room for descenders but numbers look like they are a little too high, so bump it a little.
 
   var descenderHeight = 2;
   var y = renderer.calcY(params.pitch) + 2;
@@ -22604,8 +26002,9 @@ function drawTempo(renderer, params) {
       klass: 'abcjs-tempo',
       anchor: "start",
       noClass: true,
-      "dominant-baseline": "ideographic"
-    });
+      "dominant-baseline": "ideographic",
+      name: "pre"
+    }, true);
     size = renderer.controller.getTextSize.calc(params.tempo.preString, 'tempofont', 'tempo', text);
     var preWidth = size.width;
     var charWidth = preWidth / params.tempo.preString.length; // Just get some average number to increase the spacing.
@@ -22629,7 +26028,8 @@ function drawTempo(renderer, params) {
       type: 'tempofont',
       klass: 'abcjs-tempo',
       anchor: "start",
-      noClass: true
+      noClass: true,
+      name: "beats"
     });
     size = renderer.controller.getTextSize.calc(str, 'tempofont', 'tempo', text);
     var postWidth = size.width;
@@ -22646,13 +26046,13 @@ function drawTempo(renderer, params) {
       type: 'tempofont',
       klass: 'abcjs-tempo',
       anchor: "start",
-      noClass: true
-    });
-  }
+      noClass: true,
+      name: "post"
+    }, true);
+  } //tempoGroup = renderer.paper.closeGroup();
+  //	});
+  //return [tempoGroup];
 
-  tempoGroup = renderer.paper.closeGroup(); //	});
-
-  return [tempoGroup];
 }
 
 module.exports = drawTempo;
@@ -22667,7 +26067,7 @@ module.exports = drawTempo;
 
 var roundNumber = __webpack_require__(/*! ./round-number */ "./src/write/draw/round-number.js");
 
-function renderText(renderer, params) {
+function renderText(renderer, params, alreadyInGroup) {
   var y = params.y;
 
   if (params.lane) {
@@ -22692,13 +26092,18 @@ function renderText(renderer, params) {
     hash.attr.stroke = "#ff0000";
   }
 
+  if (params.cursor) {
+    hash.attr.cursor = params.cursor;
+  }
+
   var text = params.text.replace(/\n\n/g, "\n \n");
   text = text.replace(/^\n/, "\xA0\n");
 
   if (hash.font.box) {
-    renderer.paper.openGroup({
+    if (!alreadyInGroup) renderer.paper.openGroup({
       klass: hash.attr['class'],
-      fill: renderer.foregroundColor
+      fill: renderer.foregroundColor,
+      "data-name": params.name
     });
 
     if (hash.attr["text-anchor"] === "end") {
@@ -22714,6 +26119,7 @@ function renderText(renderer, params) {
   if (params.noClass) delete hash.attr['class'];
   hash.attr.x = roundNumber(hash.attr.x);
   hash.attr.y = roundNumber(hash.attr.y);
+  if (params.name) hash.attr["data-name"] = params.name;
   var elem = renderer.paper.text(text, hash.attr);
 
   if (hash.font.box) {
@@ -22733,12 +26139,13 @@ function renderText(renderer, params) {
     }
 
     renderer.paper.rect({
+      "data-name": "box",
       x: Math.round(params.x - delta),
       y: Math.round(y - deltaY),
       width: Math.round(size.width + hash.font.padding * 2),
       height: Math.round(size.height + hash.font.padding * 2)
     });
-    elem = renderer.paper.closeGroup();
+    if (!alreadyInGroup) elem = renderer.paper.closeGroup();
   }
 
   return elem;
@@ -22838,7 +26245,8 @@ var drawArc = function drawArc(renderer, x1, x2, pitch1, pitch2, above, klass, i
       stroke: renderer.foregroundColor,
       fill: "none",
       'stroke-dasharray': "5 5",
-      'class': renderer.controller.classes.generate(klass)
+      'class': renderer.controller.classes.generate(klass),
+      "data-name": isTie ? "tie" : "slur"
     });
   } else {
     var pathString = sprintf("M %f %f C %f %f %f %f %f %f C %f %f %f %f %f %f z", x1, y1, controlx1, controly1, controlx2, controly2, x2, y2, roundNumber(controlx2 - thickness * uy), roundNumber(controly2 + thickness * ux), roundNumber(controlx1 - thickness * uy), roundNumber(controly1 + thickness * ux), x1, y1);
@@ -22846,7 +26254,8 @@ var drawArc = function drawArc(renderer, x1, x2, pitch1, pitch2, above, klass, i
       path: pathString,
       stroke: "none",
       fill: renderer.foregroundColor,
-      'class': renderer.controller.classes.generate(klass)
+      'class': renderer.controller.classes.generate(klass),
+      "data-name": isTie ? "tie" : "slur"
     });
   }
 
@@ -22873,7 +26282,8 @@ var roundNumber = __webpack_require__(/*! ./round-number */ "./src/write/draw/ro
 
 function drawTriplet(renderer, params, selectables) {
   renderer.paper.openGroup({
-    klass: renderer.controller.classes.generate('triplet ' + params.durationClass)
+    klass: renderer.controller.classes.generate('triplet ' + params.durationClass),
+    "data-name": "triplet"
   });
 
   if (!params.hasBeam) {
@@ -22888,8 +26298,9 @@ function drawTriplet(renderer, params, selectables) {
     type: 'tripletfont',
     anchor: "middle",
     centerVertically: true,
-    noClass: true
-  });
+    noClass: true,
+    name: "" + params.number
+  }, true);
   var g = renderer.paper.closeGroup();
   selectables.wrapSvgEl({
     el_type: "triplet",
@@ -22924,7 +26335,8 @@ function drawBracket(renderer, x1, y1, x2, y2) {
   pathString += drawLine(rightStartX, rightStartY, x2, y2);
   printPath(renderer, {
     path: pathString,
-    stroke: renderer.foregroundColor
+    stroke: renderer.foregroundColor,
+    "data-name": "triplet-bracket"
   });
 }
 
@@ -22937,6 +26349,8 @@ module.exports = drawTriplet;
   !*** ./src/write/draw/voice.js ***!
   \*********************************/
 /***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+var drawGlissando = __webpack_require__(/*! ./glissando */ "./src/write/draw/glissando.js");
 
 var drawCrescendo = __webpack_require__(/*! ./crescendo */ "./src/write/draw/crescendo.js");
 
@@ -22967,8 +26381,9 @@ function drawVoice(renderer, params, bartop, selectables, staffPos) {
       type: 'voicefont',
       klass: 'staff-extra voice-name',
       anchor: 'start',
-      centerVertically: true
-    });
+      centerVertically: true,
+      name: "voice-name"
+    }, true);
     selectables.wrapSvgEl({
       el_type: "voiceName",
       startChar: -1,
@@ -22996,6 +26411,16 @@ function drawVoice(renderer, params, bartop, selectables, staffPos) {
       // 	child.elemset = drawTempo(renderer, child);
       // 	break;
       default:
+        if (params.staff.isTabStaff) {
+          child.invisible = false;
+
+          if (child.type == 'bar') {
+            if (child.abcelem.lastBar) {
+              bartop = params.topLine;
+            }
+          }
+        }
+
         drawAbsolute(renderer, child, params.barto || i === params.children.length - 1 ? bartop : 0, selectables, staffPos);
     }
 
@@ -23026,6 +26451,10 @@ function drawVoice(renderer, params, bartop, selectables, staffPos) {
       renderer.controller.classes.incrMeasure();
     } else {
       switch (child.type) {
+        case "GlissandoElem":
+          child.elemset = drawGlissando(renderer, child, selectables);
+          break;
+
         case "CrescendoElem":
           child.elemset = drawCrescendo(renderer, child, selectables);
           break;
@@ -23064,13 +26493,39 @@ module.exports = drawVoice;
 
 /***/ }),
 
+/***/ "./src/write/format-jazz-chord.js":
+/*!****************************************!*\
+  !*** ./src/write/format-jazz-chord.js ***!
+  \****************************************/
+/***/ (function(module) {
+
+function formatJazzChord(chordString) {
+  // This puts markers in the pieces of the chord that are read by the svg creator.
+  // After the main part of the chord (the letter, a sharp or flat, and "m") a marker is added. Before a slash a marker is added.
+  var lines = chordString.split("\n");
+
+  for (var i = 0; i < lines.length; i++) {
+    var chord = lines[i]; // If the chord isn't in a recognizable format then just skip the formatting.
+
+    var reg = chord.match(/^([ABCDEFG][♯♭]?)?([^\/]+)?(\/[ABCDEFG][#b♯♭]?)?/);
+    if (reg) lines[i] = (reg[1] ? reg[1] : '') + "\x03" + (reg[2] ? reg[2] : '') + "\x03" + (reg[3] ? reg[3] : '');
+  }
+
+  return lines.join("\n");
+}
+
+module.exports = formatJazzChord;
+
+/***/ }),
+
 /***/ "./src/write/free-text.js":
 /*!********************************!*\
   !*** ./src/write/free-text.js ***!
   \********************************/
 /***/ (function(module) {
 
-function FreeText(text, vskip, getFontAndAttr, paddingLeft, width, getTextSize) {
+function FreeText(info, vskip, getFontAndAttr, paddingLeft, width, getTextSize) {
+  var text = info.text;
   this.rows = [];
   var size;
   if (vskip) this.rows.push({
@@ -23094,30 +26549,61 @@ function FreeText(text, vskip, getFontAndAttr, paddingLeft, width, getTextSize) 
       font: 'textfont',
       klass: 'defined-text',
       anchor: "start",
-      absElemType: "freeText"
+      startChar: info.startChar,
+      endChar: info.endChar,
+      absElemType: "freeText",
+      name: "free-text"
     });
     size = getTextSize.calc(text, 'textfont', 'defined-text');
     this.rows.push({
       move: size.height
     });
-  } else {
+  } else if (text) {
+    var maxHeight = 0;
+    var leftSide = paddingLeft;
     var currentFont = 'textfont';
-    var isCentered = false; // The structure is wrong here: it requires an array to do centering, but it shouldn't have.
 
     for (var i = 0; i < text.length; i++) {
-      if (text[i].font) currentFont = text[i].font;else currentFont = 'textfont';
-      if (text[i].center) isCentered = true;
-      var alignment = isCentered ? 'middle' : 'start';
-      var x = isCentered ? width / 2 : paddingLeft;
+      if (text[i].font) {
+        currentFont = text[i].font;
+      } else currentFont = 'textfont';
+
       this.rows.push({
-        left: x,
+        left: leftSide,
         text: text[i].text,
         font: currentFont,
         klass: 'defined-text',
-        anchor: alignment,
-        absElemType: "freeText"
+        anchor: 'start',
+        startChar: info.startChar,
+        endChar: info.endChar,
+        absElemType: "freeText",
+        name: "free-text"
       });
-      size = getTextSize.calc(text[i].text, currentFont, 'defined-text');
+      size = getTextSize.calc(text[i].text, getFontAndAttr.calc(currentFont, 'defined-text').font, 'defined-text');
+      leftSide += size.width + size.height / 2; // add a little padding to the right side. The height of the font is probably a close enough approximation.
+
+      maxHeight = Math.max(maxHeight, size.height);
+    }
+
+    this.rows.push({
+      move: maxHeight
+    });
+  } else {
+    // The structure is wrong here: it requires an array to do centering, but it shouldn't have.
+    if (info.length === 1) {
+      var x = width / 2;
+      this.rows.push({
+        left: x,
+        text: info[0].text,
+        font: 'textfont',
+        klass: 'defined-text',
+        anchor: 'middle',
+        startChar: info.startChar,
+        endChar: info.endChar,
+        absElemType: "freeText",
+        name: "free-text"
+      });
+      size = getTextSize.calc(info[0].text, 'textfont', 'defined-text');
       this.rows.push({
         move: size.height
       });
@@ -23317,12 +26803,39 @@ VoiceElement.getSpacingUnits = function (voice) {
 // can't call this function more than once per iteration
 
 
-VoiceElement.layoutOneItem = function (x, spacing, voice, minPadding) {
+VoiceElement.layoutOneItem = function (x, spacing, voice, minPadding, firstVoice) {
   var child = voice.children[voice.i];
   if (!child) return 0;
   var er = x - voice.minx; // available extrawidth to the left
 
   var pad = voice.durationindex + child.duration > 0 ? minPadding : 0; // only add padding to the items that aren't fixed to the left edge.
+  // See if this item overlaps the item in the first voice. If firstVoice is undefined then there's nothing to compare.
+
+  if (child.abcelem.el_type === "note" && !child.abcelem.rest && voice.voicenumber !== 0 && firstVoice) {
+    var firstChild = firstVoice.children[firstVoice.i]; // It overlaps if the either the child's top or bottom is inside the firstChild's or at least within 1
+    // A special case is if the element is on the same line then it can share a note head, if the notehead is the same
+
+    var overlaps = firstChild && (child.abcelem.maxpitch <= firstChild.abcelem.maxpitch + 1 && child.abcelem.maxpitch >= firstChild.abcelem.minpitch - 1 || child.abcelem.minpitch <= firstChild.abcelem.maxpitch + 1 && child.abcelem.minpitch >= firstChild.abcelem.minpitch - 1); // See if they can share a note head
+
+    if (overlaps && child.abcelem.minpitch === firstChild.abcelem.minpitch && child.abcelem.maxpitch === firstChild.abcelem.maxpitch && firstChild.heads && firstChild.heads.length > 0 && child.heads && child.heads.length > 0 && firstChild.heads[0].c === child.heads[0].c) overlaps = false; // If this note overlaps the note in the first voice and we haven't moved the note yet (this can be called multiple times)
+
+    if (overlaps) {
+      // I think that firstChild should always have at least one note head, but defensively make sure.
+      // There was a problem with this being called more than once so if a value is adjusted then it is saved so it is only adjusted once.
+      var firstChildNoteWidth = firstChild.heads && firstChild.heads.length > 0 ? firstChild.heads[0].realWidth : firstChild.fixed.w;
+      if (!child.adjustedWidth) child.adjustedWidth = firstChildNoteWidth + child.w;
+      child.w = child.adjustedWidth;
+
+      for (var j = 0; j < child.children.length; j++) {
+        var relativeChild = child.children[j];
+
+        if (relativeChild.name.indexOf("accidental") < 0) {
+          if (!relativeChild.adjustedWidth) relativeChild.adjustedWidth = relativeChild.dx + firstChildNoteWidth;
+          relativeChild.dx = relativeChild.adjustedWidth;
+        }
+      }
+    }
+  }
 
   var extraWidth = getExtraWidth(child, pad);
 
@@ -23515,6 +27028,7 @@ function createStems(elems, asc, beam, dy, mainNote) {
     var pitch = furthestHead.pitch + (asc ? ovalDelta : -ovalDelta);
     var dx = asc ? furthestHead.w : 0; // down-pointing stems start on the left side of the note, up-pointing stems start on the right side, so we offset by the note width.
 
+    if (!isGrace) dx += furthestHead.dx;
     var x = furthestHead.x + dx; // this is now the actual x location in pixels.
 
     var bary = getBarYAt(beam.startX, beam.startY, beam.endX, beam.endY, x);
@@ -24095,6 +27609,29 @@ module.exports = setUpperAndLowerElements;
 
 var layoutVoiceElements = __webpack_require__(/*! ./VoiceElements */ "./src/write/layout/VoiceElements.js");
 
+function checkLastBarX(voices) {
+  var maxX = 0;
+
+  for (var i = 0; i < voices.length; i++) {
+    var curVoice = voices[i];
+
+    if (curVoice.children.length > 0) {
+      var lastChild = curVoice.children.length - 1;
+      var maxChild = curVoice.children[lastChild];
+
+      if (maxChild.abcelem.el_type === 'bar') {
+        var barX = maxChild.children[0].x;
+
+        if (barX > maxX) {
+          maxX = barX;
+        } else {
+          maxChild.children[0].x = maxX;
+        }
+      }
+    }
+  }
+}
+
 var layoutStaffGroup = function layoutStaffGroup(spacing, renderer, debug, staffGroup, leftEdge) {
   var epsilon = 0.0000001; // Fudging for inexactness of floating point math.
 
@@ -24142,7 +27679,7 @@ var layoutStaffGroup = function layoutStaffGroup(spacing, renderer, debug, staff
     var spacingduration = 0;
 
     for (i = 0; i < currentvoices.length; i++) {
-      //console.log("greatest spacing unit", x, currentvoices[i].getNextX(), currentvoices[i].getSpacingUnits(), currentvoices[i].spacingduration);
+      //console.log("greatest spacing unit", x, layoutVoiceElements.getNextX(currentvoices[i]), layoutVoiceElements.getSpacingUnits(currentvoices[i]), currentvoices[i].spacingduration);
       if (layoutVoiceElements.getNextX(currentvoices[i]) > x) {
         x = layoutVoiceElements.getNextX(currentvoices[i]);
         spacingunit = layoutVoiceElements.getSpacingUnits(currentvoices[i]);
@@ -24153,9 +27690,14 @@ var layoutStaffGroup = function layoutStaffGroup(spacing, renderer, debug, staff
     spacingunits += spacingunit;
     minspace = Math.min(minspace, spacingunit);
     if (debug) console.log("currentduration: ", currentduration, spacingunits, minspace);
+    var lastTopVoice = undefined;
 
     for (i = 0; i < currentvoices.length; i++) {
-      var voicechildx = layoutVoiceElements.layoutOneItem(x, spacing, currentvoices[i], renderer.minPadding);
+      var v = currentvoices[i];
+      if (v.voicenumber === 0) lastTopVoice = i;
+      var topVoice = lastTopVoice !== undefined && currentvoices[lastTopVoice].voicenumber !== v.voicenumber ? currentvoices[lastTopVoice] : undefined;
+      if (!isSameStaff(v, topVoice)) topVoice = undefined;
+      var voicechildx = layoutVoiceElements.layoutOneItem(x, spacing, v, renderer.minPadding, topVoice);
       var dx = voicechildx - x;
 
       if (dx > 0) {
@@ -24188,8 +27730,10 @@ var layoutStaffGroup = function layoutStaffGroup(spacing, renderer, debug, staff
       x = layoutVoiceElements.getNextX(staffGroup.voices[i]);
       spacingunit = layoutVoiceElements.getSpacingUnits(staffGroup.voices[i]);
     }
-  } //console.log("greatest remaining",spacingunit,x);
+  } // adjust lastBar when needed (multi staves)
 
+
+  checkLastBarX(staffGroup.voices); //console.log("greatest remaining",spacingunit,x);
 
   spacingunits += spacingunit;
   staffGroup.setWidth(x);
@@ -24209,6 +27753,12 @@ function finished(voices) {
 
 function getDurationIndex(element) {
   return element.durationindex - (element.children[element.i] && element.children[element.i].duration > 0 ? 0 : 0.0000005); // if the ith element doesn't have a duration (is not a note), its duration index is fractionally before. This enables CLEF KEYSIG TIMESIG PART, etc. to be laid out before we get to the first note of other voices
+}
+
+function isSameStaff(voice1, voice2) {
+  if (!voice1 || !voice1.staff || !voice1.staff.voices || voice1.staff.voices.length === 0) return false;
+  if (!voice2 || !voice2.staff || !voice2.staff.voices || voice2.staff.voices.length === 0) return false;
+  return voice1.staff.voices[0] === voice2.staff.voices[0];
 }
 
 module.exports = layoutStaffGroup;
@@ -24367,7 +27917,8 @@ function moveDecorations(beam) {
 }
 
 function placeInLane(rightMost, relElem) {
-  // These items are centered so figure the coordinates accordingly and add a little margin.
+  // These items are centered so figure the coordinates accordingly.
+  // The font reports some extra space so the margin is built in.
   var xCoords = relElem.getChordDim();
 
   if (xCoords) {
@@ -24471,14 +28022,14 @@ module.exports = layoutVoice;
 
 var spacing = __webpack_require__(/*! ./abc_spacing */ "./src/write/abc_spacing.js");
 
-function setupSelection(engraver) {
+function setupSelection(engraver, svgs) {
   engraver.rangeHighlight = rangeHighlight;
 
   if (engraver.dragging) {
     for (var h = 0; h < engraver.selectables.length; h++) {
       var hist = engraver.selectables[h];
 
-      if (hist.selectable) {
+      if (hist.svgEl.getAttribute("selectable") === "true") {
         hist.svgEl.setAttribute("tabindex", 0);
         hist.svgEl.setAttribute("data-index", h);
         hist.svgEl.addEventListener("keydown", keyboardDown.bind(engraver));
@@ -24488,14 +28039,21 @@ function setupSelection(engraver) {
     }
   }
 
-  engraver.renderer.paper.svg.addEventListener('mousedown', mouseDown.bind(engraver));
-  engraver.renderer.paper.svg.addEventListener('mousemove', mouseMove.bind(engraver));
-  engraver.renderer.paper.svg.addEventListener('mouseup', mouseUp.bind(engraver));
+  for (var i = 0; i < svgs.length; i++) {
+    svgs[i].addEventListener('touchstart', mouseDown.bind(engraver));
+    svgs[i].addEventListener('touchmove', mouseMove.bind(engraver));
+    svgs[i].addEventListener('touchend', mouseUp.bind(engraver));
+    svgs[i].addEventListener('mousedown', mouseDown.bind(engraver));
+    svgs[i].addEventListener('mousemove', mouseMove.bind(engraver));
+    svgs[i].addEventListener('mouseup', mouseUp.bind(engraver));
+  }
 }
 
-function getCoord(ev, svg) {
+function getCoord(ev) {
   var scaleX = 1;
-  var scaleY = 1; // when renderer.options.responsive === 'resize' the click coords are in relation to the HTML
+  var scaleY = 1;
+  var svg = ev.target.closest('svg');
+  var yOffset = 0; // when renderer.options.responsive === 'resize' the click coords are in relation to the HTML
   // element, we need to convert to the SVG viewBox coords
 
   if (svg.viewBox.baseVal) {
@@ -24503,6 +28061,7 @@ function getCoord(ev, svg) {
     // Chrome makes these values null when no viewBox is given.
     if (svg.viewBox.baseVal.width !== 0) scaleX = svg.viewBox.baseVal.width / svg.clientWidth;
     if (svg.viewBox.baseVal.height !== 0) scaleY = svg.viewBox.baseVal.height / svg.clientHeight;
+    yOffset = svg.viewBox.baseVal.y;
   }
 
   var svgClicked = ev.target.tagName === "svg";
@@ -24520,7 +28079,7 @@ function getCoord(ev, svg) {
   x = x * scaleX;
   y = y * scaleY; //console.log(x, y)
 
-  return [x, y];
+  return [x, y + yOffset];
 }
 
 function elementFocused(ev) {
@@ -24550,7 +28109,7 @@ function keyboardSelection(ev) {
       this.dragTarget = this.selectables[index];
       this.dragIndex = index;
       this.dragMechanism = "keyboard";
-      mouseUp.bind(this)();
+      mouseUp.bind(this)(ev);
       break;
 
     case 38:
@@ -24586,7 +28145,7 @@ function keyboardSelection(ev) {
       // tab
       // This is losing focus - if there had been dragging, then do the callback
       if (this.dragYStep !== 0) {
-        mouseUp.bind(this)();
+        mouseUp.bind(this)(ev);
       }
 
       break;
@@ -24601,7 +28160,7 @@ function keyboardSelection(ev) {
 
 function findElementInHistory(selectables, el) {
   for (var i = 0; i < selectables.length; i++) {
-    if (el === selectables[i].svgEl) return i;
+    if (el.dataset.index === selectables[i].svgEl.dataset.index) return i;
   }
 
   return -1;
@@ -24667,7 +28226,7 @@ function getBestMatchCoordinates(dim, ev, scale) {
 }
 
 function getTarget(target) {
-  // This searches up the dom for the first item containig the attribute "selectable", or stopping at the SVG.
+  // This searches up the dom for the first item containing the attribute "selectable", or stopping at the SVG.
   if (target.tagName === "svg") return target;
   var found = target.getAttribute("selectable");
 
@@ -24694,7 +28253,7 @@ function getMousePosition(self, ev) {
     y = box[1]; //console.log("clicked on", clickedOn, x, y, self.selectables[clickedOn].svgEl.getBBox(), ev.target.getBBox());
   } else {
     // See if they clicked close to an element.
-    box = getCoord(ev, self.renderer.paper.svg);
+    box = getCoord(ev);
     x = box[0];
     y = box[1];
     clickedOn = findElementByCoord(self, x, y); //console.log("clicked near", clickedOn, x, y, printEl(ev.target));
@@ -24707,11 +28266,28 @@ function getMousePosition(self, ev) {
   };
 }
 
+function attachMissingTouchEventAttributes(touchEv) {
+  var rect = touchEv.target.getBoundingClientRect();
+  var offsetX = touchEv.touches[0].pageX - rect.left;
+  var offsetY = touchEv.touches[0].pageY - rect.top;
+  touchEv.touches[0].offsetX = offsetX;
+  touchEv.touches[0].offsetY = offsetY;
+  touchEv.touches[0].layerX = touchEv.touches[0].pageX;
+  touchEv.touches[0].layerY = touchEv.touches[0].pageY;
+}
+
 function mouseDown(ev) {
   // "this" is the EngraverController because of the bind(this) when setting the event listener.
-  var positioning = getMousePosition(this, ev); // Only start dragging if the user clicked close enough to an element and clicked with the main mouse button.
+  var _ev = ev;
 
-  if (positioning.clickedOn >= 0 && ev.button === 0) {
+  if (ev.type === 'touchstart') {
+    attachMissingTouchEventAttributes(ev);
+    _ev = ev.touches[0];
+  }
+
+  var positioning = getMousePosition(this, _ev); // Only start dragging if the user clicked close enough to an element and clicked with the main mouse button.
+
+  if (positioning.clickedOn >= 0 && (ev.type === 'touchstart' || ev.button === 0)) {
     this.dragTarget = this.selectables[positioning.clickedOn];
     this.dragIndex = positioning.clickedOn;
     this.dragMechanism = "mouse";
@@ -24728,9 +28304,17 @@ function mouseDown(ev) {
 }
 
 function mouseMove(ev) {
-  // "this" is the EngraverController because of the bind(this) when setting the event listener.
+  var _ev = ev;
+
+  if (ev.type === 'touchmove') {
+    attachMissingTouchEventAttributes(ev);
+    _ev = ev.touches[0];
+  }
+
+  this.lastTouchMove = ev; // "this" is the EngraverController because of the bind(this) when setting the event listener.
+
   if (!this.dragTarget || !this.dragging || !this.dragTarget.isDraggable || this.dragMechanism !== 'mouse') return;
-  var positioning = getMousePosition(this, ev);
+  var positioning = getMousePosition(this, _ev);
   var yDist = Math.round((positioning.y - this.dragMouseStart.y) / spacing.STEP);
 
   if (yDist !== this.dragYStep) {
@@ -24741,6 +28325,13 @@ function mouseMove(ev) {
 
 function mouseUp(ev) {
   // "this" is the EngraverController because of the bind(this) when setting the event listener.
+  var _ev = ev;
+
+  if (ev.type === 'touchend') {
+    attachMissingTouchEventAttributes(this.lastTouchMove);
+    _ev = this.lastTouchMove.touches[0];
+  }
+
   if (!this.dragTarget) return;
   clearSelection.bind(this)();
 
@@ -24749,7 +28340,7 @@ function mouseUp(ev) {
     this.dragTarget.absEl.highlight(undefined, this.selectionColor);
   }
 
-  notifySelect.bind(this)(this.dragTarget, this.dragYStep, this.selectables.length, this.dragIndex, ev);
+  notifySelect.bind(this)(this.dragTarget, this.dragYStep, this.selectables.length, this.dragIndex, _ev);
 
   if (this.dragTarget.svgEl && this.dragTarget.svgEl.focus) {
     this.dragTarget.svgEl.focus();
@@ -24765,7 +28356,9 @@ function setSelection(dragIndex) {
     this.dragTarget = this.selectables[dragIndex];
     this.dragIndex = dragIndex;
     this.dragMechanism = "keyboard";
-    mouseUp.bind(this)();
+    mouseUp.bind(this)({
+      target: this.dragTarget.svgEl
+    });
   }
 }
 
@@ -24801,6 +28394,23 @@ function notifySelect(target, dragStep, dragMax, dragIndex, ev) {
   }
 
   if (target.staffPos) analysis.staffPos = target.staffPos;
+  var closest = ev.target;
+
+  while (!closest.dataset.name && closest.tagName.toLowerCase() !== 'svg') {
+    closest = closest.parentNode;
+  }
+
+  var parent = ev.target;
+
+  while (!parent.dataset.index && parent.tagName.toLowerCase() !== 'svg') {
+    parent = parent.parentNode;
+  }
+
+  analysis.name = parent.dataset.name;
+  analysis.clickedName = closest.dataset.name;
+  analysis.parentClasses = parent.classList;
+  analysis.clickedClasses = closest.classList;
+  analysis.selectableElement = target.svgEl;
 
   for (var i = 0; i < this.listeners.length; i++) {
     this.listeners[i](target.absEl.abcelem, target.absEl.tuneNumber, classes.join(' '), analysis, {
@@ -24908,7 +28518,8 @@ function Separator(spaceAbove, lineLength, spaceBelow) {
     move: spaceAbove
   });
   this.rows.push({
-    separator: lineLength
+    separator: lineLength,
+    absElemType: "separator"
   });
   if (spaceBelow) this.rows.push({
     move: spaceBelow
@@ -24957,7 +28568,7 @@ module.exports = setClass;
   \*******************************/
 /***/ (function(module) {
 
-function Subtitle(spaceAbove, formatting, text, center, paddingLeft, getTextSize) {
+function Subtitle(spaceAbove, formatting, info, center, paddingLeft, getTextSize) {
   this.rows = [];
   if (spaceAbove) this.rows.push({
     move: spaceAbove
@@ -24966,12 +28577,16 @@ function Subtitle(spaceAbove, formatting, text, center, paddingLeft, getTextSize
   var tLeft = formatting.titleleft ? paddingLeft : center;
   this.rows.push({
     left: tLeft,
-    text: text,
+    text: info.text,
     font: 'subtitlefont',
     klass: 'text subtitle',
-    anchor: tAnchor
+    anchor: tAnchor,
+    startChar: info.startChar,
+    endChar: info.endChar,
+    absElemType: "subtitle",
+    name: "subtitle"
   });
-  var size = getTextSize.calc(text, 'subtitlefont', 'text subtitle');
+  var size = getTextSize.calc(info.text, 'subtitlefont', 'text subtitle');
   this.rows.push({
     move: size.height
   });
@@ -24994,6 +28609,7 @@ var svgNS = "http://www.w3.org/2000/svg";
 
 function Svg(wrapper) {
   this.svg = createSvg();
+  this.currentGroup = [];
   wrapper.appendChild(this.svg);
 }
 
@@ -25001,6 +28617,7 @@ Svg.prototype.clear = function () {
   if (this.svg) {
     var wrapper = this.svg.parentNode;
     this.svg = createSvg();
+    this.currentGroup = [];
 
     if (wrapper) {
       // TODO-PER: If the wrapper is not present, then the underlying div was pulled out from under this instance. It's possible that is still useful (for creating the music off page?)
@@ -25115,7 +28732,8 @@ Svg.prototype.rect = function (attr) {
   lines.push(constructVLine(x1, y2, y1));
   return this.path({
     path: lines.join(" "),
-    stroke: "none"
+    stroke: "none",
+    "data-name": attr["data-name"]
   });
 };
 
@@ -25157,9 +28775,31 @@ Svg.prototype.text = function (text, attr, target) {
 
   for (var i = 0; i < lines.length; i++) {
     var line = document.createElementNS(svgNS, 'tspan');
-    line.textContent = lines[i];
     line.setAttribute("x", attr.x ? attr.x : 0);
     if (i !== 0) line.setAttribute("dy", "1.2em");
+
+    if (lines[i].indexOf("\x03") !== -1) {
+      var parts = lines[i].split('\x03');
+      line.textContent = parts[0];
+
+      if (parts[1]) {
+        var ts2 = document.createElementNS(svgNS, 'tspan');
+        ts2.setAttribute("dy", "-0.3em");
+        ts2.setAttribute("style", "font-size:0.7em");
+        ts2.textContent = parts[1];
+        line.appendChild(ts2);
+      }
+
+      if (parts[2]) {
+        var dist = parts[1] ? "0.4em" : "0.1em";
+        var ts3 = document.createElementNS(svgNS, 'tspan');
+        ts3.setAttribute("dy", dist);
+        ts3.setAttribute("style", "font-size:0.7em");
+        ts3.textContent = parts[2];
+        line.appendChild(ts3);
+      }
+    } else line.textContent = lines[i];
+
     el.appendChild(line);
   }
 
@@ -25180,9 +28820,9 @@ Svg.prototype.guessWidth = function (text, attr) {
         height: attr['font-size'] + 2
       }; // Just a wild guess.
     else size = {
-        width: size.width,
-        height: size.height
-      };
+      width: size.width,
+      height: size.height
+    };
   } catch (ex) {
     size = {
       width: attr['font-size'] / 2,
@@ -25237,7 +28877,7 @@ Svg.prototype.getTextSize = function (text, attr, el) {
   }
 
   if (removeLater) {
-    if (this.currentGroup) this.currentGroup.removeChild(el);else this.svg.removeChild(el);
+    if (this.currentGroup.length > 0) this.currentGroup[0].removeChild(el);else this.svg.removeChild(el);
   }
 
   if (key) sizeCache[key] = size;
@@ -25250,14 +28890,21 @@ Svg.prototype.openGroup = function (options) {
   if (options.klass) el.setAttribute("class", options.klass);
   if (options.fill) el.setAttribute("fill", options.fill);
   if (options.stroke) el.setAttribute("stroke", options.stroke);
-  if (options.prepend) this.svg.insertBefore(el, this.svg.firstChild);else this.svg.appendChild(el);
-  this.currentGroup = el;
+  if (options['data-name']) el.setAttribute("data-name", options['data-name']);
+  if (options.prepend) this.prepend(el);else this.append(el);
+  this.currentGroup.unshift(el);
   return el;
 };
 
 Svg.prototype.closeGroup = function () {
-  var g = this.currentGroup;
-  this.currentGroup = null;
+  var g = this.currentGroup.shift();
+
+  if (g && g.children.length === 0) {
+    // If nothing was added to the group it is because all the elements were invisible. We don't need the group, then.
+    this.svg.removeChild(g);
+    return null;
+  }
+
   return g;
 };
 
@@ -25266,7 +28913,7 @@ Svg.prototype.path = function (attr) {
 
   for (var key in attr) {
     if (attr.hasOwnProperty(key)) {
-      if (key === 'path') el.setAttributeNS(null, 'd', attr.path);else el.setAttributeNS(null, key, attr[key]);
+      if (key === 'path') el.setAttributeNS(null, 'd', attr.path);else if (key === 'klass') el.setAttributeNS(null, "class", attr[key]);else if (attr[key] !== undefined) el.setAttributeNS(null, key, attr[key]);
     }
   }
 
@@ -25279,7 +28926,7 @@ Svg.prototype.pathToBack = function (attr) {
 
   for (var key in attr) {
     if (attr.hasOwnProperty(key)) {
-      if (key === 'path') el.setAttributeNS(null, 'd', attr.path);else el.setAttributeNS(null, key, attr[key]);
+      if (key === 'path') el.setAttributeNS(null, 'd', attr.path);else if (key === 'klass') el.setAttributeNS(null, "class", attr[key]);else el.setAttributeNS(null, key, attr[key]);
     }
   }
 
@@ -25288,12 +28935,12 @@ Svg.prototype.pathToBack = function (attr) {
 };
 
 Svg.prototype.append = function (el) {
-  if (this.currentGroup) this.currentGroup.appendChild(el);else this.svg.appendChild(el);
+  if (this.currentGroup.length > 0) this.currentGroup[0].appendChild(el);else this.svg.appendChild(el);
 };
 
 Svg.prototype.prepend = function (el) {
   // The entire group is prepended, so don't prepend the individual elements.
-  if (this.currentGroup) this.currentGroup.appendChild(el);else this.svg.insertBefore(el, this.svg.firstChild);
+  if (this.currentGroup.length > 0) this.currentGroup[0].appendChild(el);else this.svg.insertBefore(el, this.svg.firstChild);
 };
 
 Svg.prototype.setAttributeOnElement = function (el, attr) {
@@ -25328,18 +28975,46 @@ module.exports = Svg;
 /*!*******************************!*\
   !*** ./src/write/top-text.js ***!
   \*******************************/
-/***/ (function(module) {
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
 
-function TopText(metaText, formatting, lines, width, isPrint, paddingLeft, spacing, getTextSize) {
+var addTextIf = __webpack_require__(/*! ./add-text-if */ "./src/write/add-text-if.js");
+
+function TopText(metaText, metaTextInfo, formatting, lines, width, isPrint, paddingLeft, spacing, getTextSize) {
   this.rows = [];
 
   if (metaText.header && isPrint) {
     // Note: whether there is a header or not doesn't change any other positioning, so this doesn't change the Y-coordinate.
     // This text goes above the margin, so we'll temporarily move up.
     var headerTextHeight = getTextSize.calc("X", "headerfont", 'abcjs-header abcjs-meta-top').height;
-    this.addTextIf(paddingLeft, metaText.header.left, 'headerfont', 'header meta-top', -headerTextHeight, 0, 'start', getTextSize);
-    this.addTextIf(paddingLeft + width / 2, metaText.header.center, 'headerfont', 'header meta-top', -headerTextHeight, null, 'middle', getTextSize);
-    this.addTextIf(paddingLeft + width, metaText.header.right, 'headerfont', 'header meta-top', -headerTextHeight, null, 'end', getTextSize);
+    addTextIf(this.rows, {
+      marginLeft: paddingLeft,
+      text: metaText.header.left,
+      font: 'headerfont',
+      klass: 'header meta-top',
+      marginTop: -headerTextHeight,
+      info: metaTextInfo.header,
+      name: "header"
+    }, getTextSize);
+    addTextIf(this.rows, {
+      marginLeft: paddingLeft + width / 2,
+      text: metaText.header.center,
+      font: 'headerfont',
+      klass: 'header meta-top',
+      marginTop: -headerTextHeight,
+      anchor: 'middle',
+      info: metaTextInfo.header,
+      name: "header"
+    }, getTextSize);
+    addTextIf(this.rows, {
+      marginLeft: paddingLeft + width,
+      text: metaText.header.right,
+      font: 'headerfont',
+      klass: 'header meta-top',
+      marginTop: -headerTextHeight,
+      anchor: 'end',
+      info: metaTextInfo.header,
+      name: "header"
+    }, getTextSize); //		TopText.prototype.addTextIf = function (marginLeft, text, font, klass, marginTop, marginBottom, anchor, getTextSize, absElemType, noMove) {
   }
 
   if (isPrint) this.rows.push({
@@ -25349,11 +29024,36 @@ function TopText(metaText, formatting, lines, width, isPrint, paddingLeft, spaci
   var tLeft = formatting.titleleft ? paddingLeft : paddingLeft + width / 2;
 
   if (metaText.title) {
-    this.addTextIf(tLeft, metaText.title, 'titlefont', 'title meta-top', spacing.title, 0, tAnchor, getTextSize, "title");
+    addTextIf(this.rows, {
+      marginLeft: tLeft,
+      text: metaText.title,
+      font: 'titlefont',
+      klass: 'title meta-top',
+      marginTop: spacing.title,
+      anchor: tAnchor,
+      absElemType: "title",
+      info: metaTextInfo.title,
+      name: "title"
+    }, getTextSize);
   }
 
-  if (lines[0] && lines[0].subtitle) {
-    this.addTextIf(tLeft, lines[0].subtitle, 'subtitlefont', 'text meta-top subtitle', spacing.subtitle, 0, tAnchor, getTextSize, "subtitle");
+  if (lines.length) {
+    var index = 0;
+
+    while (index < lines.length && lines[index].subtitle) {
+      addTextIf(this.rows, {
+        marginLeft: tLeft,
+        text: lines[index].subtitle.text,
+        font: 'subtitlefont',
+        klass: 'text meta-top subtitle',
+        marginTop: spacing.subtitle,
+        anchor: tAnchor,
+        absElemType: "subtitle",
+        info: lines[index].subtitle,
+        name: "subtitle"
+      }, getTextSize);
+      index++;
+    }
   }
 
   if (metaText.rhythm || metaText.origin || metaText.composer) {
@@ -25363,7 +29063,16 @@ function TopText(metaText, formatting, lines, width, isPrint, paddingLeft, spaci
 
     if (metaText.rhythm && metaText.rhythm.length > 0) {
       var noMove = !!(metaText.composer || metaText.origin);
-      this.addTextIf(paddingLeft, metaText.rhythm, 'infofont', 'meta-top rhythm', 0, null, "start", getTextSize, "rhythm", noMove);
+      addTextIf(this.rows, {
+        marginLeft: paddingLeft,
+        text: metaText.rhythm,
+        font: 'infofont',
+        klass: 'meta-top rhythm',
+        absElemType: "rhythm",
+        noMove: noMove,
+        info: metaTextInfo.rhythm,
+        name: "rhythm"
+      }, getTextSize);
     }
 
     var composerLine = "";
@@ -25371,43 +29080,44 @@ function TopText(metaText, formatting, lines, width, isPrint, paddingLeft, spaci
     if (metaText.origin) composerLine += ' (' + metaText.origin + ')';
 
     if (composerLine.length > 0) {
-      this.addTextIf(paddingLeft + width, composerLine, 'composerfont', 'meta-top composer', 0, null, "end", getTextSize, "composer");
+      addTextIf(this.rows, {
+        marginLeft: paddingLeft + width,
+        text: composerLine,
+        font: 'composerfont',
+        klass: 'meta-top composer',
+        anchor: "end",
+        absElemType: "composer",
+        info: metaTextInfo.composer,
+        name: "composer"
+      }, getTextSize);
     }
   }
 
   if (metaText.author && metaText.author.length > 0) {
-    this.addTextIf(paddingLeft + width, metaText.author, 'composerfont', 'meta-top author', 0, 0, "end", getTextSize, "author");
+    addTextIf(this.rows, {
+      marginLeft: paddingLeft + width,
+      text: metaText.author,
+      font: 'composerfont',
+      klass: 'meta-top author',
+      anchor: "end",
+      absElemType: "author",
+      info: metaTextInfo.author,
+      name: "author"
+    }, getTextSize);
   }
 
   if (metaText.partOrder && metaText.partOrder.length > 0) {
-    this.addTextIf(paddingLeft, metaText.partOrder, 'partsfont', 'meta-top part-order', 0, 0, "start", getTextSize, "partOrder");
+    addTextIf(this.rows, {
+      marginLeft: paddingLeft,
+      text: metaText.partOrder,
+      font: 'partsfont',
+      klass: 'meta-top part-order',
+      absElemType: "partOrder",
+      info: metaTextInfo.partOrder,
+      name: "part-order"
+    }, getTextSize);
   }
 }
-
-TopText.prototype.addTextIf = function (marginLeft, text, font, klass, marginTop, marginBottom, anchor, getTextSize, absElemType, noMove) {
-  if (!text) return;
-  if (marginTop) this.rows.push({
-    move: marginTop
-  });
-  this.rows.push({
-    left: marginLeft,
-    text: text,
-    font: font,
-    klass: klass,
-    anchor: anchor,
-    absElemType: absElemType
-  });
-
-  if (!noMove) {
-    var size = getTextSize.calc(text, font, klass);
-    this.rows.push({
-      move: size.height
-    });
-    if (marginBottom) this.rows.push({
-      move: marginBottom
-    });
-  }
-};
 
 module.exports = TopText;
 
@@ -25437,7 +29147,7 @@ module.exports = unhighlight;
   \********************/
 /***/ (function(module) {
 
-var version = '6.0.0-beta.33';
+var version = '6.1.1';
 module.exports = version;
 
 /***/ })
