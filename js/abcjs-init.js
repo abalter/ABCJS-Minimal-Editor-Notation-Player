@@ -21,7 +21,38 @@ let tune_selector = document.getElementById("tune-selector");
 let abc_display = document.getElementById('abc-display');
 let tune_textarea = document.getElementById("abc-display");
 
-$(tune_textarea).on('click', updateTune());
+
+debug(1, "windows onload");
+tune_selector.value = "dan_breens"
+tune_selector.selectedIndex = 1;
+fetchTune("dan_breens.abc");
+selectionChangeCallback();
+// Show Error When Use Fetch Method With Import Method
+fetch(tunes_list_path,  {mode: 'no-cors'})
+.then(response =>
+{
+    debug(2, "response: " + response);
+    return response;
+})
+.then(data => 
+{
+
+    debug(2, "data: " + data)
+    return data.text()
+})
+.then(Normal =>
+{
+    // console.log("Normal:", Normal)
+    debug(1, "got tunelist");
+    // document.getElementById("tune-list").innerHTML = Normal.split("\n").join("<br/>\n");
+    
+    let  tune_list = Normal.split("\n").sort();
+    addTunesToSelector(tune_list);
+})
+.catch(err =>
+{
+    debug(1, 'Fetch problem show: ' + err.message);
+});
 
 window.onload = function()
 {
@@ -58,6 +89,8 @@ window.onload = function()
     });
 }
 
+
+// $(tune_textarea).on('click', updateTune());
 
 
 function updateTune()
