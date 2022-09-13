@@ -1,14 +1,13 @@
 console.log("in abcjs-init.js");
 
-debug_level = 3
+var debug_level = 2;
 
 function debug(level, message)
 {
-
-  // console.log(new Error);
   if (debug_level >= level)
   {
-    console.log(message);
+    console.log(new Error);
+    console.log(message); 
   }
 }
 
@@ -21,7 +20,12 @@ let tune_selector = document.getElementById("tune-selector");
 let abc_display = document.getElementById('abc-display');
 let tune_textarea = document.getElementById("abc-display");
 
-$(tune_textarea).on('click', updateTune());
+// $(tune_textarea).on('click', function(e) 
+// {
+//     debug(1, "text area clicked");
+//     // e.preventDefault();
+//     // updateTune();
+// });
 
 window.onload = function()
 {
@@ -49,7 +53,7 @@ window.onload = function()
         debug(1, "got tunelist");
         // document.getElementById("tune-list").innerHTML = Normal.split("\n").join("<br/>\n");
         
-        let  tune_list = Normal.split("\n").sort();
+        let tune_list = Normal.split("\n").sort();
         addTunesToSelector(tune_list);
     })
     .catch(err =>
